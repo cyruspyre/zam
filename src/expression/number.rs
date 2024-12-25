@@ -1,6 +1,6 @@
 use hexf_parse::parse_hexf64;
 
-use crate::{misc::ValidID, source::Source};
+use crate::source::Source;
 
 use super::Term;
 
@@ -43,16 +43,31 @@ impl Source {
             }
 
             match c {
-                'i' | 'u' | 'f' => {
+                '+' | '-' | 'p' if rad == 16 => buf[0].push(c),
+                'i' | 'u' | 'f'
+                    if buf[1].is_empty()
+                        && (rad != 16 || rad == 16 && suf == 'f' || rad == 16 && c != 'f') =>
+                {
                     buf.swap(0, 1);
                     suf = c
                 }
-                _ if c.is_ascii_digit() => buf[0].push(c),
+                _ if c.is_ascii_digit() || rad == 16 && c.is_ascii_hexdigit() => buf[0].push(c),
                 _ => {
-                    if c == 's' && self.word() == "ize" && suf != 'f' {
-                        todo!("{buf:?}");
+                    let tmp = self.rng[0];
+                    let word = self.word();
+
+                    if word.is_empty() {
+                        self.idx -= 1
                     }
-                    self.idx -= 1;
+
+                    if c == 's' && buf[0].is_empty() && word == "ize" && suf != 'f' {
+                        // hard coded native size for now
+                        buf[0] += "64"
+                    } else if c.is_ascii_alphabetic() && buf[1].is_empty() {
+                        suf = '\0'
+                    }
+
+                    self.rng[0] = tmp;
                     break;
                 }
             }
@@ -60,13 +75,17 @@ impl Source {
 
         self.rng[1] = self.idx;
 
-        if buf[1].is_empty() {
+        println!("f{buf:?} {rad} {suf:?}");
+
+        if buf[1].is_empty() && suf != '\0' {
             buf[1] += "0";
         } else {
             buf.swap(0, 1)
         }
 
         let bit = buf[1].parse().unwrap_or(65u32);
+
+        println!("{buf:?} {rad} {suf:?} {bit}");
 
         'tmp: {
             if bit != 0 {
@@ -87,10 +106,16 @@ impl Source {
             }
         }
 
-        println!("{buf:?} {rad} {suf:?} {bit}");
-
         match suf {
-            'f' => todo!(),
+            'f' => {
+                if let Some(val) = match rad {
+                    10 => buf[0].parse().ok(),
+                    16 => parse_hexf64(&format!("0x{}", buf[0]), false).ok(),
+                    _ => self.err("only decimal and hexadecimal are allowed for float literals"),
+                } {
+                    return Term::Float { val, bit };
+                }
+            }
             _ => 'tmp: {
                 let mut val = match u64::from_str_radix(&buf[0], rad) {
                     Ok(n) => n,
@@ -113,6 +138,18 @@ impl Source {
 
         println!("{buf:?} {rad} {suf:?} {bit}");
 
-        todo!()
+        self.err(&format!(
+            "invalid {} {} literal",
+            match rad {
+                2 => "binary",
+                8 => "octal",
+                10 => "decimal",
+                _ => "hexadecimal",
+            },
+            match suf {
+                'f' => "float",
+                _ => "integer",
+            }
+        ))
     }
 }
