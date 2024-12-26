@@ -1,3 +1,5 @@
 fn main() -> void {
-    0x1.9p+3f32
+    let a = 69isize;
+
+    ff
 }

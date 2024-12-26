@@ -86,6 +86,8 @@ impl Source {
                 }
             };
 
+            println!("{:?}", self.data[self.idx]);
+
             exp.push(tmp);
         }
 

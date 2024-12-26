@@ -16,6 +16,8 @@ impl Source {
             }
         }
 
+        self.rng.fill(self.idx + !neg as usize);
+
         let rad = if self.might('0') {
             match self.next() {
                 'b' | 'B' => 2,
@@ -53,17 +55,18 @@ impl Source {
                 }
                 _ if c.is_ascii_digit() || rad == 16 && c.is_ascii_hexdigit() => buf[0].push(c),
                 _ => {
-                    let tmp = self.rng[0];
-                    let word = self.word();
+                    self.idx -= 1;
 
-                    if word.is_empty() {
-                        self.idx -= 1
+                    if !c.is_ascii_alphabetic() {
+                        break;
                     }
 
-                    if c == 's' && buf[0].is_empty() && word == "ize" && suf != 'f' {
+                    let tmp = self.rng[0];
+
+                    if self.word() == "size" && suf != 'f' {
                         // hard coded native size for now
                         buf[0] += "64"
-                    } else if c.is_ascii_alphabetic() && buf[1].is_empty() {
+                    } else if buf[1].is_empty() {
                         suf = '\0'
                     }
 
@@ -75,8 +78,6 @@ impl Source {
 
         self.rng[1] = self.idx;
 
-        println!("f{buf:?} {rad} {suf:?}");
-
         if buf[1].is_empty() && suf != '\0' {
             buf[1] += "0";
         } else {
@@ -84,8 +85,6 @@ impl Source {
         }
 
         let bit = buf[1].parse().unwrap_or(65u32);
-
-        println!("{buf:?} {rad} {suf:?} {bit}");
 
         'tmp: {
             if bit != 0 {
@@ -96,9 +95,9 @@ impl Source {
                         ". expected {suf}{{{}}}",
                         match suf {
                             'f' if !matches!(bit, 32 | 64) => "32|64",
-                            _ if !matches!(bit, 1..=64) => "1..=64",
+                            _ if !matches!(bit, 1..=64) => "1..=64|size",
                             _ => break 'tmp,
-                        }
+                        },
                     )
                 }
 
@@ -117,6 +116,7 @@ impl Source {
                 }
             }
             _ => 'tmp: {
+                println!("f{:?}", self.data[self.idx]);
                 let mut val = match u64::from_str_radix(&buf[0], rad) {
                     Ok(n) => n,
                     _ => break 'tmp,
@@ -135,8 +135,6 @@ impl Source {
                 };
             }
         }
-
-        println!("{buf:?} {rad} {suf:?} {bit}");
 
         self.err(&format!(
             "invalid {} {} literal",
