@@ -136,23 +136,27 @@ impl Source {
         }
 
         if buf.len() != 0 {
-            self.rng[1] = self.rng[0] + buf.len() - 1;
-
-            if buf.chars().next().unwrap().is_numeric() {
-                self.err("identifiers cannot start with number")
-            }
+            self.rng[1] = self.rng[0] + buf.len() - 1
         }
 
         buf
     }
 
-    pub fn identifier(&mut self) -> String {
+    pub fn identifier(&mut self, optional: bool) -> String {
         let tmp = self.word();
 
         if tmp.is_empty() {
+            if optional {
+                return tmp;
+            }
+            
             self.skip_whitespace();
             let after = self._next().is_none();
             self.err_op(after, &["<identifier>"]);
+        }
+
+        if tmp.chars().next().unwrap().is_numeric() {
+            self.err("identifiers cannot start with number")
         }
 
         if matches!(

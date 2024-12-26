@@ -15,7 +15,7 @@ impl Source {
         let mut fields = Vec::new();
 
         loop {
-            let name = self.word();
+            let name = self.identifier(true);
             let one = self.rng;
 
             if name.is_empty() {

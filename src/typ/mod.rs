@@ -42,7 +42,7 @@ impl Source {
         }
 
         let raw = ptr[0] > 0;
-        let name = self.identifier();
+        let name = self.identifier(false);
         let mut null = 0;
         let mut sub = Vec::new();
 

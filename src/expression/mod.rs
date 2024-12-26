@@ -55,9 +55,9 @@ impl Source {
                 self.num()
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;
-                Term::As(self.identifier())
+                Term::As(self.identifier(false))
             } else if c == '_' || c.is_ascii_alphabetic() {
-                Term::Identifier(self.identifier())
+                Term::Identifier(self.identifier(false))
             } else {
                 self._next();
 
@@ -86,13 +86,8 @@ impl Source {
                 }
             };
 
-            println!("{:?}", self.data[self.idx]);
-
             exp.push(tmp);
         }
-
-        println!("{:?}", exp);
-        println!("{}", exp.to_string());
 
         (exp, end)
     }

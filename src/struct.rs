@@ -14,7 +14,7 @@ pub struct Struct {
 
 impl Source {
     pub fn strukt(&mut self) -> Struct {
-        let name = self.identifier();
+        let name = self.identifier(false);
         let rng = self.rng;
         let de = self.expect_char(&['<', '{']);
         let gen = match de {

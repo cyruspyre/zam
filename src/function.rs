@@ -17,7 +17,7 @@ pub struct Function {
 
 impl Source {
     pub fn fun(&mut self) -> Function {
-        let name = self.identifier();
+        let name = self.identifier(false);
         let de = self.expect_char(&['<', '(']);
         let gen = match de {
             '<' => self.gen(),

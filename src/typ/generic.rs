@@ -9,7 +9,7 @@ impl Source {
         let mut data = Vec::new();
 
         'main: loop {
-            let tmp = self.word();
+            let tmp = self.identifier(true);
 
             if tmp.is_empty() {
                 self.err_op(false, &[">", "<identifier>"])

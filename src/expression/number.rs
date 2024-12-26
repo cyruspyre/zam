@@ -116,7 +116,6 @@ impl Source {
                 }
             }
             _ => 'tmp: {
-                println!("f{:?}", self.data[self.idx]);
                 let mut val = match u64::from_str_radix(&buf[0], rad) {
                     Ok(n) => n,
                     _ => break 'tmp,

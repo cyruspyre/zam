@@ -4,7 +4,7 @@ use super::Statement;
 
 impl Source {
     pub fn var(&mut self, cte: bool) -> Statement {
-        let name = self.identifier();
+        let name = self.identifier(false);
         let typ = match self.expect_char(&[':', '=']) {
             ':' => Some(self.typ()),
             _ => None,
@@ -19,8 +19,6 @@ impl Source {
         if val.is_empty() {
             self.err_op(true, &["<expression>"]);
         }
-
-        println!("{:?}", self._peek());
 
         Statement::Variable {
             name,

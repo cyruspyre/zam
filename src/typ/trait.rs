@@ -9,7 +9,7 @@ pub struct Trait {
 
 impl Source {
     pub fn trt(&mut self) -> Trait {
-        let name = self.identifier();
+        let name = self.identifier(false);
         let mut sub = Vec::new();
 
         if self.might('<') {
