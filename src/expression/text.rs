@@ -67,7 +67,7 @@ impl Source {
                     buf += " "
                 }
                 buf += "  ";
-                self.word = buf;
+                // self.word = buf;
                 self.err(msg);
             }
         }
