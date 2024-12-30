@@ -38,7 +38,11 @@ impl Source {
                 continue;
             }
 
-            if c == '.' && !self.peek().is_ascii_alphabetic() {
+            if c == '.' && {
+                let c = self.peek();
+
+                c != '.' && !c.is_ascii_alphabetic()
+            } {
                 buf[0].push('.');
                 c = self.next();
                 suf = 'f';

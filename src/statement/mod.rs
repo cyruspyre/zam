@@ -1,9 +1,10 @@
 mod conditional;
+mod r#loop;
 mod variable;
 
 use crate::{block::Block, expression::Expression, typ::Type};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Variable {
         name: String,
@@ -15,6 +16,10 @@ pub enum Statement {
         cond: Vec<(Expression, Block)>,
         default: Option<Block>,
     },
+    Loop(Block),
+    Block(Block),
     Expression(Expression),
+    Break(String),
+    Continue(String),
     Return(Expression),
 }

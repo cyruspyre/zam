@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
 use crate::{r#struct::Struct, source::Source};
 
@@ -25,8 +25,16 @@ pub enum Term {
     Char(char),
     Group(Expression),
     Identifier(String),
+    Access(String),
+    Call(Vec<Expression>),
+    Rng,
+    Assign,
+    Null,
+    Ref,
+    Deref,
     Neg,
     Add,
+    AddAssign,
     Sub,
     Div,
     Mod,

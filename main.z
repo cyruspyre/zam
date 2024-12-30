@@ -1,5 +1,7 @@
 fn main() -> void {
-    let a = 69isize;
-    
-    if a {} else if a {} else {}
+    let a = 0;
+
+    for n in 1..10 {
+        a += 2
+    }
 }

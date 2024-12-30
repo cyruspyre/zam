@@ -5,8 +5,7 @@ use crate::{
     typ::{Generic, Type},
 };
 
-#[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
     pub arg: Vec<Field<Type>>,

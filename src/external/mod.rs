@@ -3,7 +3,7 @@ mod r#use;
 
 use crate::{function::Function, source::Source};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum External {
     Fn(Function),
 }

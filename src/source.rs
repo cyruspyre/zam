@@ -6,7 +6,6 @@ pub struct Source {
     pub path: String,
     pub data: Vec<char>,
     pub line: Vec<usize>,
-    pub word: String,
     pub rng: [usize; 2],
     pub idx: usize,
     pub de: Vec<usize>,
@@ -14,16 +13,15 @@ pub struct Source {
 
 impl Source {
     pub fn new(path: &str) -> Self {
-        let data = match read_to_string(path) {
+        let mut data = match read_to_string(path) {
             Ok(v) => v,
             Err(e) => error(&format!("{} [{path}]", e.to_string().to_lowercase())),
         };
 
         Self {
-            path: path.into(),
+            path: String::new(),
             data: data.chars().collect(),
             line: Vec::new(),
-            word: String::new(),
             rng: [0; 2],
             idx: usize::MAX,
             de: Vec::new(),
@@ -149,9 +147,13 @@ impl Source {
             if optional {
                 return tmp;
             }
-            
-            self.skip_whitespace();
+
             let after = self._next().is_none();
+
+            if !after && self.de.binary_search(&self.idx).is_err() {
+                self.rng.fill(0)
+            }
+
             self.err_op(after, &["<identifier>"]);
         }
 
@@ -161,7 +163,19 @@ impl Source {
 
         if matches!(
             tmp.as_str(),
-            "fn" | "cte" | "let" | "pub" | "enum" | "struct" | "extern"
+            "fn" | "if"
+                | "in"
+                | "cte"
+                | "let"
+                | "pub"
+                | "use"
+                | "for"
+                | "else"
+                | "loop"
+                | "enum"
+                | "while"
+                | "struct"
+                | "extern"
         ) {
             self.err("identifier cannot be a keyword")
         }
@@ -276,11 +290,13 @@ impl Source {
 
     pub fn expect<T: ToString>(&mut self, op: &[T]) -> String {
         let mut buf = String::new();
-        let op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
+        let mut op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
         let de = match self.de.last() {
             Some(n) => *n,
             _ => 0,
         };
+
+        op.sort_unstable();
 
         while let Some(c) = self._next() {
             if self.idx == de {

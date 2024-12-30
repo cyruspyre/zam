@@ -1,5 +1,5 @@
 mod number;
-mod term;
+pub mod term;
 mod text;
 
 use term::Term;
@@ -7,12 +7,13 @@ use term::Term;
 use crate::source::Source;
 
 const OP: &[(char, Option<Term>, &[(char, Term)])] = &[
-    ('=', None, &[('=', Term::Eq)]),
+    ('=', Some(Term::Assign), &[('=', Term::Eq)]),
     ('!', Some(Term::Neg), &[('=', Term::Nq)]),
     ('<', Some(Term::Gt), &[('=', Term::Le), ('<', Term::Shl)]),
     ('>', Some(Term::Lt), &[('=', Term::Ge), ('<', Term::Shr)]),
-    ('+', Some(Term::Add), &[]),
+    ('+', Some(Term::Add), &[('=', Term::AddAssign)]),
     ('-', Some(Term::Sub), &[]),
+    ('.', Some(Term::Access(String::new())), &[('.', Term::Rng)]),
 ];
 
 pub type Expression = Vec<Term>;
@@ -31,7 +32,7 @@ impl PrettyExp for Vec<Term> {
 }
 
 impl Source {
-    pub fn exp(&mut self, de: char) -> (Expression, bool) {
+    pub fn exp(&mut self, de: char, required: bool) -> (Expression, bool) {
         let mut exp = Vec::new();
         let mut end = false;
         let last = match self.de.last() {
@@ -77,6 +78,7 @@ impl Source {
                         }
 
                         if let Some(v) = &v.1 {
+                            if let Term::Assign = *v {}
                             break 'one v.clone();
                         }
                     }
@@ -87,6 +89,10 @@ impl Source {
             };
 
             exp.push(tmp);
+        }
+
+        if required && exp.is_empty() {
+            self.err_op(true, &["<expression>"])
         }
 
         (exp, end)

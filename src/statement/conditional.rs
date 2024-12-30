@@ -8,11 +8,7 @@ impl Source {
         let mut default = None;
 
         loop {
-            let exp = self.exp('{').0;
-
-            if exp.is_empty() {
-                self.err_op(true, &["<expression>"]);
-            }
+            let exp = self.exp('{', true).0;
 
             let block = self.block(false);
             let mut tmp = self.idx;
