@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Display};
+use std::fmt::Display;
 
 use crate::{r#struct::Struct, source::Source};
 
@@ -100,6 +100,7 @@ impl Display for Term {
             Term::Group(v) => format!("({})", v.to_string()),
             Term::As(v) => format!("as {v}"),
             Term::Identifier(v) => v.into(),
+            Term::Access(v) => format!(". {v}"),
             _ => match self {
                 Term::Add => "+",
                 Term::Sub => "-",

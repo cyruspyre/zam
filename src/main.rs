@@ -19,5 +19,5 @@ use unicode_segmentation::Graphemes;
 fn main() {
     let src = Source::new("main.z").parse();
 
-    println!("{:#?}", src.fun[0].block.stm)
+    // println!("{:#?}", src.fun[0].block.stm)
 }
