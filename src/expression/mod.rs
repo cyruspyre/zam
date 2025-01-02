@@ -2,14 +2,9 @@ mod number;
 pub mod term;
 mod text;
 
-use std::{
-    collections::{BinaryHeap, HashSet},
-    io::{stdin, Read},
-};
-
 use term::Term;
 
-use crate::{source::Source, statement::Statement};
+use crate::source::Source;
 
 const OP: &[(char, Option<Term>, &[(char, Term)])] = &[
     ('=', Some(Term::Assign), &[('=', Term::Eq)]),
