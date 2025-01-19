@@ -71,7 +71,7 @@ impl Source {
             self.err_mul(v, "declared multiple times")
         }
 
-        self.de.pop();
+        self.de.pop_back();
 
         fields
     }

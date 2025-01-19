@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use std::{collections::VecDeque, fs::read_to_string};
 
 use crate::{block::Block, error::error, misc::ValidID};
 
@@ -8,12 +8,12 @@ pub struct Source {
     pub line: Vec<usize>,
     pub rng: [usize; 2],
     pub idx: usize,
-    pub de: Vec<usize>,
+    pub de: VecDeque<usize>,
 }
 
 impl Source {
     pub fn new(path: &str) -> Self {
-        let mut data = match read_to_string(path) {
+        let data = match read_to_string(path) {
             Ok(v) => v,
             Err(e) => error(&format!("{} [{path}]", e.to_string().to_lowercase())),
         };
@@ -24,7 +24,7 @@ impl Source {
             line: Vec::new(),
             rng: [0; 2],
             idx: usize::MAX,
-            de: Vec::new(),
+            de: VecDeque::new(),
         }
     }
 
@@ -77,6 +77,7 @@ impl Source {
     pub fn _peek(&mut self) -> Option<char> {
         if let Some(c) = self.data.get(self.idx.wrapping_add(1)) {
             if *c == '/'
+                && !matches!(self.data[self.rng[0]], '"' | '\'')
                 && self
                     .data
                     .get(self.idx.wrapping_add(2))
@@ -227,13 +228,40 @@ impl Source {
         let tmp = self.idx;
         let typ = self.data[tmp];
         let mut count = 0;
+        let mut string = 0;
 
-        while let Some(c) = self._next() {
+        'one: while let Some(c) = self._next() {
+            if string != 0 {
+                continue;
+            }
+
+            if matches!(c, '\'' | '"') {
+                string = self.idx;
+
+                while let Some(v) = self._next() {
+                    if c == v && self.data[self.idx - 1] != '\\' {
+                        string = 0;
+                        break;
+                    }
+
+                    if v == '{' && !self.might('{') {
+                        self.ensure_closed('}');
+
+                        if let Some(v) = self.de.back() {
+                            self.idx = *v
+                        }
+                    } else if de == v && !self.might('}') {
+                        // string = self.idx;
+                        continue 'one;
+                    }
+                }
+            }
+
             if c == typ {
                 count += 1
             } else if c == de {
                 if count == 0 {
-                    self.de.push(self.idx);
+                    self.de.push_back(self.idx);
                     self.idx = tmp;
                     return;
                 } else {
@@ -242,7 +270,16 @@ impl Source {
             }
         }
 
-        self.err_mul(&mut [[tmp; 2], [self.idx, 0]], "unclosed delimeter")
+        let mut pnt = Vec::with_capacity(3);
+
+        pnt.push([tmp; 2]);
+
+        if string != 0 {
+            pnt.push([string; 2])
+        }
+
+        pnt.push([self.idx, 0]);
+        self.err_mul(&mut pnt, &format!("unclosed delimeter. expected `{de}`"))
     }
 
     pub fn until_whitespace(&mut self) -> String {
@@ -291,7 +328,7 @@ impl Source {
     pub fn expect<T: ToString>(&mut self, op: &[T]) -> String {
         let mut buf = String::new();
         let mut op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
-        let de = match self.de.last() {
+        let de = match self.de.back() {
             Some(n) => *n,
             _ => 0,
         };

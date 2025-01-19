@@ -6,10 +6,10 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Struct {
-    name: String,
-    gen: Generic,
-    fields: Vec<Field<Type>>,
-    rng: [usize; 2],
+    pub name: String,
+    pub gen: Generic,
+    pub fields: Vec<Field<Type>>,
+    pub rng: [usize; 2],
 }
 
 impl Source {

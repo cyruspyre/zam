@@ -6,18 +6,19 @@ use term::Term;
 
 use crate::source::Source;
 
-const OP: &[(char, Option<Term>, &[(char, Term)])] = &[
-    ('=', Some(Term::Assign), &[('=', Term::Eq)]),
-    ('!', Some(Term::Neg), &[('=', Term::Nq)]),
-    ('<', Some(Term::Gt), &[('=', Term::Le), ('<', Term::Shl)]),
-    ('>', Some(Term::Lt), &[('=', Term::Ge), ('<', Term::Shr)]),
-    ('+', Some(Term::Add), &[('=', Term::AddAssign)]),
-    ('-', Some(Term::Sub), &[]),
-    ('/', Some(Term::Div), &[]),
-    ('.', Some(Term::Access(String::new())), &[('.', Term::Rng)]),
-];
-
 pub type Expression = Vec<Term>;
+
+// manually sort the elements as per ascii ascending order
+const OP: [(char, Term, &[(char, Term)]); 8] = [
+    ('!', Term::Neg, &[('=', Term::Nq)]),
+    ('+', Term::Add, &[('=', Term::AddAssign)]),
+    ('-', Term::Sub, &[]),
+    ('.', Term::Access(false), &[('.', Term::Rng)]),
+    ('/', Term::Div, &[]),
+    ('<', Term::Gt, &[('<', Term::Shl), ('=', Term::Le)]),
+    ('>', Term::Lt, &[('<', Term::Shr), ('=', Term::Ge)]),
+    ('=', Term::Assign, &[('=', Term::Eq)]),
+];
 
 pub trait PrettyExp {
     fn to_string(&self) -> String;
@@ -36,7 +37,7 @@ impl Source {
     pub fn exp(&mut self, de: char, required: bool) -> (Expression, bool) {
         let mut exp = Vec::new();
         let mut end = false;
-        let last = match self.de.last() {
+        let last = match self.de.back() {
             Some(n) => n - 1,
             _ => 0,
         };
@@ -58,40 +59,27 @@ impl Source {
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;
                 Term::As(self.identifier(false))
+            } else if match c {
+                'b' | 'r' if matches!(self.peek_more(), '\'' | '"') => true,
+                '\'' | '"' => true,
+                _ => false,
+            } {
+                self.text()
             } else if c == '_' || c.is_ascii_alphabetic() {
-                if exp
-                    .last()
-                    .is_some_and(|v| matches!(v, Term::Access(v) if v.is_empty()))
-                {
-                    if let Term::Access(v) = exp.last_mut().unwrap() {
-                        *v = self.identifier(false)
-                    }
-                    continue;
-                }
-
                 Term::Identifier(self.identifier(false))
             } else {
                 self._next();
 
                 'one: {
-                    for v in OP {
-                        if v.0 != c {
-                            continue;
+                    if let Ok(i) = OP.binary_search_by_key(&c, |v| v.0) {
+                        let v = &OP[i];
+
+                        if let Ok(j) = v.2.binary_search_by_key(&self.peek(), |v| v.0) {
+                            self._next();
+                            break 'one v.2[j].1.clone();
                         }
 
-                        let c = self.peek();
-
-                        for v in v.2 {
-                            if v.0 == c {
-                                self._next();
-                                break 'one v.1.clone();
-                            }
-                        }
-
-                        if let Some(v) = &v.1 {
-                            if let Term::Assign = *v {}
-                            break 'one v.clone();
-                        }
+                        break 'one v.1.clone();
                     }
 
                     self.rng.fill(0);

@@ -1,4 +1,4 @@
-A general purpose programming language
+Experimental general purpose programming language
 
 ```rs
 extern "C" use {
@@ -7,18 +7,13 @@ extern "C" use {
 }
 
 fn main() {
-    let mut vec: *u10 = malloc(sizeof(u10) * 10);
+    let arr = malloc<*u20>(sizeof(u20) * 10);
 
     for n in 0..10 {
-        let one = vec[n];
-
-        if one? {
-            *one = 10
-        }
-
-        vec[n + 1]
+        arr[n] = 10 + 10 * n
     }
 
-    free(vec)
+    printf("%s\n", Vec::from_raw_ptr(arr, 10).to_string());
+    free(arr);
 }
 ```

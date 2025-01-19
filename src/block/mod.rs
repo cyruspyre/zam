@@ -24,14 +24,14 @@ impl Source {
         let mut ext = Vec::new();
         let mut stk = Vec::new();
         let stm_ref = unsafe { &mut *(&mut stm as *mut _) };
-        let de = match self.de.last() {
+        let de = match self.de.back() {
             Some(n) => n - 1,
             _ => 0,
         };
 
         'one: loop {
             if self.idx == de {
-                self.de.pop();
+                self.de.pop_back();
                 self._next();
                 break;
             }
@@ -67,7 +67,7 @@ impl Source {
                 _ => {
                     self.idx = stamp;
 
-                    let (exp, used) = self.exp(';',false);
+                    let (exp, used) = self.exp(';', false);
 
                     if used {
                         self._next();

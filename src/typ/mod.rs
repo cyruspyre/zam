@@ -64,7 +64,7 @@ impl Source {
                 self.expect_char(&[',']);
             }
 
-            self.de.pop();
+            self.de.pop_back();
         }
 
         while self.might('?') {

@@ -44,7 +44,8 @@ impl Source {
                     Term::Identifier(nullable.clone()),
                     Term::Assign,
                     Term::Identifier(exp),
-                    Term::Access("next".into()),
+                    Term::Access(false),
+                    Term::Identifier("next".into()),
                     Term::Call(Vec::new()),
                 ]));
 
@@ -67,7 +68,10 @@ impl Source {
                 })
             }
             "while" => Some(Statement::Conditional {
-                cond: vec![(vec![Term::Neg, Term::Group(self.exp('{', true).0)], _break())],
+                cond: vec![(
+                    vec![Term::Neg, Term::Group(self.exp('{', true).0)],
+                    _break(),
+                )],
                 default: None,
             }),
             _ => None,

@@ -1,12 +1,15 @@
 use std::fmt::Display;
 
-use crate::{r#struct::Struct, source::Source};
+use crate::{block::Block, fields::Field, source::Source};
 
 use super::{Expression, PrettyExp};
 
 #[derive(Debug, Clone)]
 pub enum Term {
-    Struct(Struct),
+    Struct {
+        name: String,
+        fields: Vec<Field<Term>>,
+    },
     Integer {
         val: u64,
         bit: u32,
@@ -18,14 +21,15 @@ pub enum Term {
         val: f64,
         bit: u32,
     },
+    Char(char),
     String {
         data: String,
         byte: bool,
     },
-    Char(char),
+    Block(Block),
     Group(Expression),
     Identifier(String),
-    Access(String),
+    Access(bool),
     Call(Vec<Expression>),
     Rng,
     Assign,
@@ -100,8 +104,11 @@ impl Display for Term {
             Term::Group(v) => format!("({})", v.to_string()),
             Term::As(v) => format!("as {v}"),
             Term::Identifier(v) => v.into(),
-            Term::Access(v) => format!(". {v}"),
             _ => match self {
+                Term::Access(v) => match v {
+                    true => "::",
+                    _ => ".",
+                },
                 Term::Add => "+",
                 Term::Sub => "-",
                 Term::Div => "/",
