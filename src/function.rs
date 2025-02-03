@@ -28,6 +28,7 @@ impl Source {
         }
 
         let arg = self.fields(')');
+        println!("{arg:?}");
 
         self.expect(&["->"]);
 

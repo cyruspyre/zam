@@ -46,7 +46,7 @@ impl Source {
                     Term::Identifier(exp),
                     Term::Access(false),
                     Term::Identifier("next".into()),
-                    Term::Call(Vec::new()),
+                    Term::Tuple(Vec::new()),
                 ]));
 
                 Some(Statement::Conditional {

@@ -1,12 +1,37 @@
+pub mod group;
 mod number;
 pub mod term;
 mod text;
 
+use group::GroupValue;
 use term::Term;
 
-use crate::source::Source;
+use crate::{fields::FieldValue, source::Source};
 
 pub type Expression = Vec<Term>;
+
+impl FieldValue for Expression {
+    fn field_value(src: &mut Source) -> Self {
+        src.exp(',', false).0
+    }
+}
+
+impl GroupValue for Expression {
+    fn group_value(src: &mut Source) -> Option<Self> {
+        let (exp, used) = src.exp(',', false);
+        let empty = exp.is_empty();
+
+        if used {
+            src.idx += 1
+        }
+
+        if empty {
+            return None;
+        }
+
+        Some(exp)
+    }
+}
 
 // manually sort the elements as per ascii ascending order
 const OP: [(char, Term, &[(char, Term)]); 8] = [
@@ -54,7 +79,23 @@ impl Source {
                 continue;
             }
 
-            let tmp = if c.is_ascii_digit() || c == '-' && exp.is_empty() {
+            let tmp = if c == '{' {
+                match exp.last() {
+                    Some(Term::Identifier(_)) => {
+                        self.idx += 1;
+                        Term::Struct(self.fields('}'))
+                    }
+                    _ => Term::Block(self.block(false)),
+                }
+            } else if c == '(' {
+                let mut tmp = self.group();
+
+                match tmp.len() {
+                    0 => Term::Void,
+                    1 => Term::Group(tmp.pop().unwrap()),
+                    _ => Term::Tuple(tmp),
+                }
+            } else if c.is_ascii_digit() || c == '-' && exp.is_empty() {
                 self.num()
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;

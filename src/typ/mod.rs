@@ -4,7 +4,7 @@ mod r#trait;
 pub use generic::*;
 pub use r#trait::*;
 
-use crate::source::Source;
+use crate::{expression::group::GroupValue, fields::FieldValue, source::Source};
 
 #[derive(Debug, Default, Clone)]
 #[allow(unused)]
@@ -14,6 +14,24 @@ pub struct Type {
     pub ptr: usize,
     pub raw: bool,
     pub null: usize,
+}
+
+impl FieldValue for Type {
+    fn field_value(src: &mut Source) -> Self {
+        src.typ()
+    }
+}
+
+impl GroupValue for Type {
+    fn group_value(src: &mut Source) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        match src.skip_whitespace() {
+            ')' => None,
+            _ => Some(src.typ()),
+        }
+    }
 }
 
 impl Source {
@@ -41,12 +59,18 @@ impl Source {
             self.err("cannot mix pointers and reference")
         }
 
+        let tuple = self.skip_whitespace() == '(';
         let raw = ptr[0] > 0;
-        let name = self.identifier(false);
         let mut null = 0;
-        let mut sub = Vec::new();
+        let (name, mut sub) = match tuple {
+            true => {
+                self.rng.fill(self.idx + 1);
+                (String::new(), self.group())
+            }
+            _ => (self.identifier(false), Vec::new()),
+        };
 
-        if self.might('<') {
+        if !tuple && self.might('<') {
             self.ensure_closed('>');
 
             loop {

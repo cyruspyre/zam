@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{source::Source, typ::Type};
+use crate::source::Source;
 
 #[derive(Debug, Clone)]
 pub struct Field<T> {
@@ -10,7 +10,7 @@ pub struct Field<T> {
 }
 
 impl Source {
-    pub fn fields(&mut self, de: char) -> Vec<Field<Type>> {
+    pub fn fields<T: FieldValue>(&mut self, de: char) -> Vec<Field<T>> {
         self.ensure_closed(de);
         let mut fields = Vec::new();
 
@@ -31,7 +31,7 @@ impl Source {
             self.expect_char(&[':']);
             self.skip_whitespace();
             let two = self.idx + 1;
-            let data = self.typ();
+            let data = T::field_value(self);
             self.rng = [two, self.idx];
 
             while let Some(v) = self.data.get(self.rng[1]) {
@@ -75,4 +75,8 @@ impl Source {
 
         fields
     }
+}
+
+pub trait FieldValue {
+    fn field_value(src: &mut Source) -> Self;
 }

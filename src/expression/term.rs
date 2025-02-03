@@ -6,10 +6,7 @@ use super::{Expression, PrettyExp};
 
 #[derive(Debug, Clone)]
 pub enum Term {
-    Struct {
-        name: String,
-        fields: Vec<Field<Term>>,
-    },
+    Void,
     Integer {
         val: u64,
         bit: u32,
@@ -28,9 +25,10 @@ pub enum Term {
     },
     Block(Block),
     Group(Expression),
+    Tuple(Vec<Expression>),
+    Struct(Vec<Field<Expression>>),
     Identifier(String),
     Access(bool),
-    Call(Vec<Expression>),
     Rng,
     Assign,
     Null,

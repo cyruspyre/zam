@@ -72,7 +72,7 @@ impl Source {
                         flatten(v),
                         Term::Access(false),
                         Term::Identifier("to_string".into()),
-                        Term::Call(Vec::new()),
+                        Term::Tuple(Vec::new()),
                     ]),
                     WTF::Buf(data) => Term::String { data, byte: false },
                 };
@@ -85,7 +85,7 @@ impl Source {
                     Term::Identifier("String".into()),
                     Term::Access(true),
                     Term::Identifier("with_capacity".into()),
-                    Term::Call(vec![vec![Term::Integer {
+                    Term::Tuple(vec![vec![Term::Integer {
                         val: size,
                         bit: 64,
                         neg: false,
@@ -104,7 +104,7 @@ impl Source {
                         flatten(v),
                         Term::Access(false),
                         Term::Identifier("to_string".into()),
-                        Term::Call(Vec::new()),
+                        Term::Tuple(Vec::new()),
                     ],
                 };
 
