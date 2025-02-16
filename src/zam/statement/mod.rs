@@ -2,7 +2,7 @@ mod conditional;
 mod r#loop;
 mod variable;
 
-use crate::{block::Block, expression::Expression, typ::Type};
+use super::{expression::Expression, typ::Type, Block};
 
 #[derive(Debug, Clone)]
 pub enum Statement {

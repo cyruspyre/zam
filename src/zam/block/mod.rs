@@ -1,28 +1,59 @@
-use crate::{
-    external::External, function::Function, r#struct::Struct, source::Source, statement::Statement,
+mod function;
+mod r#struct;
+
+use std::collections::HashMap;
+
+use super::{
+    expression::Expression,
+    fields::Field,
+    statement::Statement,
+    typ::{generic::Generic, Type},
+    Parser,
 };
 
 #[derive(Debug, Default, Clone)]
 pub struct Block {
-    pub fun: Vec<Function>,
-    pub ext: Vec<External>,
-    pub stk: Vec<Struct>,
+    pub dec: HashMap<String, Hoistable>,
     pub stm: Vec<Statement>,
 }
 
-impl Source {
+/// Similar to `Statement`, but with declarations that are hoisted.
+///
+/// All the fields are applicable to both global and local scope.
+/// Except for `Variable`, which is to be used in global scope only.
+
+#[derive(Debug, Clone)]
+pub enum Hoistable {
+    Function {
+        arg: Vec<Field<Type>>,
+        gen: Generic,
+        ret: Type,
+        block: Option<Block>,
+    },
+    Struct {
+        gen: Generic,
+        fields: Vec<Field<Type>>,
+        rng: [usize; 2],
+    },
+    Variable {
+        typ: Option<Type>,
+        val: Expression,
+        cte: bool,
+    },
+}
+
+impl Parser {
     pub fn block(&mut self, global: bool) -> Block {
         self._block(global, Vec::new())
     }
+
     pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Block {
         if !global {
             self.expect(&['{']);
             self.ensure_closed('}');
         }
 
-        let mut fun = Vec::new();
-        let mut ext = Vec::new();
-        let mut stk = Vec::new();
+        let mut dec = HashMap::new();
         let stm_ref = unsafe { &mut *(&mut stm as *mut _) };
         let de = match self.de.back() {
             Some(n) => n - 1,
@@ -45,12 +76,15 @@ impl Source {
             }
 
             'two: {
-                match tmp {
-                    "fn" => fun.push(self.fun()),
-                    "struct" => stk.push(self.strukt()),
+                let (k, v) = match tmp {
+                    "fn" => self.fun(),
+                    "struct" => self.strukt(),
+                    // "use" => ,
+                    // "extern" => self.ext(&mut ext),
                     _ => break 'two,
-                }
+                };
 
+                dec.insert(k, v);
                 continue 'one;
             }
 
@@ -85,6 +119,6 @@ impl Source {
             });
         }
 
-        Block { fun, ext, stk, stm }
+        Block { dec, stm }
     }
 }

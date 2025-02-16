@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
-use crate::{block::Block, fields::Field, source::Source};
-
-use super::{Expression, PrettyExp};
+use super::{
+    super::{fields::Field, Block},
+    Expression, PrettyExp, Parser,
+};
 
 #[derive(Debug, Clone)]
 pub enum Term {
@@ -52,7 +53,7 @@ pub enum Term {
 }
 
 impl Term {
-    pub fn check_rng(&self, src: &mut Source) {
+    pub fn check_rng(&self, src: &mut Parser) {
         if let Term::Integer {
             val,
             bit,

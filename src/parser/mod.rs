@@ -1,9 +1,13 @@
-use std::{collections::VecDeque, fs::read_to_string};
+mod error;
+pub mod misc;
 
-use crate::{block::Block, error::error, misc::ValidID};
+use std::{collections::VecDeque, path::PathBuf};
 
-pub struct Source {
-    pub path: String,
+use misc::{read_file, ValidID};
+
+#[derive(Debug, Default)]
+pub struct Parser {
+    pub path: PathBuf,
     pub data: Vec<char>,
     pub line: Vec<usize>,
     pub rng: [usize; 2],
@@ -11,25 +15,18 @@ pub struct Source {
     pub de: VecDeque<usize>,
 }
 
-impl Source {
-    pub fn new(path: &str) -> Self {
-        let data = match read_to_string(path) {
-            Ok(v) => v,
-            Err(e) => error(&format!("{} [{path}]", e.to_string().to_lowercase())),
-        };
+impl Parser {
+    pub fn new(path: PathBuf) -> Self {
+        let data = read_file(&path).chars().collect();
 
         Self {
-            path: String::new(),
-            data: data.chars().collect(),
+            path,
+            data,
             line: Vec::new(),
             rng: [0; 2],
             idx: usize::MAX,
             de: VecDeque::new(),
         }
-    }
-
-    pub fn parse(&mut self) -> Block {
-        self.block(true)
     }
 
     pub fn _next<'a>(&'a mut self) -> Option<char> {

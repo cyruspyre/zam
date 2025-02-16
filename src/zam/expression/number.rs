@@ -1,10 +1,8 @@
 use hexf_parse::parse_hexf64;
 
-use crate::source::Source;
+use super::{Parser, Term};
 
-use super::Term;
-
-impl Source {
+impl Parser {
     pub fn num(&mut self) -> Term {
         let mut buf = [const { String::new() }; 2];
         let mut suf = 'i';

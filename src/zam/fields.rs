@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::source::Source;
+use super::Parser;
 
 #[derive(Debug, Clone)]
 pub struct Field<T> {
@@ -9,7 +9,7 @@ pub struct Field<T> {
     pub rng: [[usize; 2]; 2],
 }
 
-impl Source {
+impl Parser {
     pub fn fields<T: FieldValue>(&mut self, de: char) -> Vec<Field<T>> {
         self.ensure_closed(de);
         let mut fields = Vec::new();
@@ -78,5 +78,5 @@ impl Source {
 }
 
 pub trait FieldValue {
-    fn field_value(src: &mut Source) -> Self;
+    fn field_value(src: &mut Parser) -> Self;
 }

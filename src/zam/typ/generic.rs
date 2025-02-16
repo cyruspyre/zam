@@ -1,10 +1,8 @@
-use crate::source::Source;
-
-use super::Trait;
+use super::{r#trait::Trait, Parser};
 
 pub type Generic = Vec<(String, Vec<Trait>)>;
 
-impl Source {
+impl Parser {
     pub fn gen(&mut self) -> Generic {
         let mut data = Vec::new();
 

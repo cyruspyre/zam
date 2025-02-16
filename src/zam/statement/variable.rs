@@ -1,8 +1,6 @@
-use crate::source::Source;
+use super::{super::Parser, Statement};
 
-use super::Statement;
-
-impl Source {
+impl Parser {
     pub fn var(&mut self, cte: bool) -> Statement {
         let name = self.identifier(false);
         let typ = match self.expect_char(&[':', '=', ';']) {

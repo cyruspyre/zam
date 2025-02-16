@@ -1,17 +1,21 @@
-use std::{fmt::Display, process::exit};
+use std::fmt::Display;
 
 use colored::Colorize;
 use unicode_width::UnicodeWidthStr;
 
-use crate::source::Source;
+use super::Parser;
 
-pub fn error(msg: &str) -> ! {
-    eprintln!("{}: {msg}", "error".red());
-    exit(1)
+#[macro_export]
+macro_rules! err {
+    ($($arg:tt)*) => {{
+        eprint!("{}: ", colored::Colorize::red("error"));
+        eprintln!($($arg)*);
+        std::process::exit(1);
+    }};
 }
 
-impl Source {
-    fn code_line(&self, pnt: &mut [[usize; 2]]) {
+impl Parser {
+    pub(super) fn code_line(&self, pnt: &mut [[usize; 2]]) {
         let mut iter = pnt.into_iter().peekable();
         let pad = self.line.len().to_string().len();
         let border = format!("{} - ", " ".repeat(pad)).black().to_string();
@@ -44,6 +48,12 @@ impl Source {
                 );
 
                 loop {
+                    // in case of UB try removing this
+                    if start > rng[0] {
+                        rng[0] = start;
+                        continue;
+                    }
+
                     let eof = (rng[0] > rng[1]) as usize;
                     let space = code[0..rng[0] + eof - start].width();
                     let point = end.min(rng[1]).checked_sub(rng[0]).unwrap_or_default() + 1;
@@ -81,7 +91,7 @@ impl Source {
             true => [self.idx; 2],
             _ => self.rng,
         }]);
-        error(msg)
+        err!("{msg}")
     }
 
     pub fn err_op<T: Display>(&mut self, mut after: bool, op: &[T]) -> ! {
@@ -128,7 +138,7 @@ impl Source {
         }
 
         self.code_line(pnt);
-        error(msg)
+        err!("{msg}")
     }
 
     pub fn err_rng(&mut self, rng: [usize; 2], msg: &str) -> ! {
@@ -138,7 +148,6 @@ impl Source {
 
     pub fn eof(&mut self) -> ! {
         self.code_line(&mut [[self.idx, 0]]);
-        println!();
-        error("unexpected end of file")
+        err!("\nunexpected end of file")
     }
 }

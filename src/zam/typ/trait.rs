@@ -1,13 +1,12 @@
-use crate::source::Source;
+use super::Parser;
 
 #[derive(Debug, Clone)]
-
 pub struct Trait {
     name: String,
     sub: Vec<Trait>,
 }
 
-impl Source {
+impl Parser {
     pub fn trt(&mut self) -> Trait {
         let name = self.identifier(false);
         let mut sub = Vec::new();

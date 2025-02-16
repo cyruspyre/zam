@@ -6,18 +6,18 @@ mod text;
 use group::GroupValue;
 use term::Term;
 
-use crate::{fields::FieldValue, source::Source};
+use super::{fields::FieldValue, Parser};
 
 pub type Expression = Vec<Term>;
 
 impl FieldValue for Expression {
-    fn field_value(src: &mut Source) -> Self {
+    fn field_value(src: &mut Parser) -> Self {
         src.exp(',', false).0
     }
 }
 
 impl GroupValue for Expression {
-    fn group_value(src: &mut Source) -> Option<Self> {
+    fn group_value(src: &mut Parser) -> Option<Self> {
         let (exp, used) = src.exp(',', false);
         let empty = exp.is_empty();
 
@@ -58,7 +58,7 @@ impl PrettyExp for Vec<Term> {
     }
 }
 
-impl Source {
+impl Parser {
     pub fn exp(&mut self, de: char, required: bool) -> (Expression, bool) {
         let mut exp = Vec::new();
         let mut end = false;

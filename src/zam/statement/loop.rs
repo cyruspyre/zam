@@ -1,17 +1,18 @@
-use crate::{block::Block, expression::term::Term, source::Source};
+use std::collections::HashMap;
 
-use super::Statement;
+use super::{
+    super::{expression::term::Term, Parser},
+    Block, Statement,
+};
 
 fn _break() -> Block {
     Block {
-        fun: Vec::new(),
-        ext: Vec::new(),
-        stk: Vec::new(),
+        dec: HashMap::new(),
         stm: vec![Statement::Break(String::new())],
     }
 }
 
-impl Source {
+impl Parser {
     pub fn r#loop(&mut self, parent_stm: &mut Vec<Statement>, typ: &str) -> Statement {
         let mut stm = Vec::new();
 
@@ -55,9 +56,7 @@ impl Source {
                         _break(),
                     )],
                     default: Some(Block {
-                        fun: Vec::new(),
-                        ext: Vec::new(),
-                        stk: Vec::new(),
+                        dec: HashMap::new(),
                         stm: vec![Statement::Expression(vec![
                             Term::Identifier(val),
                             Term::Assign,

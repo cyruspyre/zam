@@ -1,12 +1,12 @@
-use crate::source::Source;
+use super::Parser;
 
 pub trait GroupValue {
-    fn group_value(src: &mut Source) -> Option<Self>
+    fn group_value(src: &mut Parser) -> Option<Self>
     where
         Self: Sized;
 }
 
-impl Source {
+impl Parser {
     pub fn group<T: GroupValue>(&mut self) -> Vec<T> {
         self.idx += 1;
         self.ensure_closed(')');

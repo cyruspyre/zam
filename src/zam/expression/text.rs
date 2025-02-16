@@ -1,6 +1,9 @@
-use crate::{block::Block, source::Source, statement::Statement};
+use std::collections::HashMap;
 
-use super::{Expression, Term};
+use super::{
+    super::{statement::Statement, Block},
+    Expression, Parser, Term,
+};
 
 #[derive(Debug)]
 enum WTF {
@@ -8,7 +11,7 @@ enum WTF {
     Exp(Expression),
 }
 
-impl Source {
+impl Parser {
     pub fn text(&mut self) -> Term {
         let [typ, de] = match self.next() {
             c if c.is_ascii_alphabetic() => [c, self.next()],
@@ -113,9 +116,7 @@ impl Source {
             }
 
             return Term::Block(Block {
-                fun: Vec::new(),
-                ext: Vec::new(),
-                stk: Vec::new(),
+                dec: HashMap::new(),
                 stm,
             });
         }

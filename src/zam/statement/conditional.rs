@@ -1,8 +1,6 @@
-use crate::source::Source;
+use super::{super::Parser, Statement};
 
-use super::Statement;
-
-impl Source {
+impl Parser {
     pub fn cond(&mut self) -> Statement {
         let mut cond = Vec::new();
         let mut default = None;

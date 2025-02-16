@@ -1,13 +1,9 @@
-mod generic;
+pub mod generic;
 mod r#trait;
 
-pub use generic::*;
-pub use r#trait::*;
-
-use crate::{expression::group::GroupValue, fields::FieldValue, source::Source};
+use super::{expression::group::GroupValue, fields::FieldValue, Parser};
 
 #[derive(Debug, Default, Clone)]
-#[allow(unused)]
 pub struct Type {
     pub name: String,
     pub sub: Vec<Type>,
@@ -17,13 +13,13 @@ pub struct Type {
 }
 
 impl FieldValue for Type {
-    fn field_value(src: &mut Source) -> Self {
+    fn field_value(src: &mut Parser) -> Self {
         src.typ()
     }
 }
 
 impl GroupValue for Type {
-    fn group_value(src: &mut Source) -> Option<Self>
+    fn group_value(src: &mut Parser) -> Option<Self>
     where
         Self: Sized,
     {
@@ -34,7 +30,7 @@ impl GroupValue for Type {
     }
 }
 
-impl Source {
+impl Parser {
     pub fn typ(&mut self) -> Type {
         let mut ptr = [0; 2];
         let mut tmp = true;
