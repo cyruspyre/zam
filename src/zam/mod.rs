@@ -4,13 +4,25 @@ use block::Block;
 
 use crate::parser::Parser;
 
-mod block;
+pub mod block;
 mod expression;
 mod external;
 mod fields;
 mod statement;
 mod typ;
 
-pub fn parse(path: PathBuf) -> Block {
-    Parser::new(path).block(true)
+pub struct Zam {
+    pub parser: Parser,
+    pub block: Block,
+}
+
+impl Zam {
+    pub fn parse(path: PathBuf) -> Self {
+        let mut parser = Parser::new(path);
+
+        Self {
+            block: parser.block(true),
+            parser,
+        }
+    }
 }

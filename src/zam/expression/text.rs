@@ -21,14 +21,6 @@ impl Parser {
         let mut buf: Vec<WTF> = Vec::new();
         let mut size = 0;
 
-        println!(
-            "{:?}",
-            self.de
-                .iter()
-                .map(|v| (v, self.data[*v]))
-                .collect::<Vec<_>>()
-        );
-
         while let Some(mut c) = self._next() {
             if c == de {
                 break;

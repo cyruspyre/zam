@@ -3,6 +3,8 @@ mod r#struct;
 
 use std::collections::HashMap;
 
+use crate::parser::misc::Span;
+
 use super::{
     expression::Expression,
     fields::Field,
@@ -13,7 +15,7 @@ use super::{
 
 #[derive(Debug, Default, Clone)]
 pub struct Block {
-    pub dec: HashMap<String, Hoistable>,
+    pub dec: HashMap<String, Span<Hoistable>>,
     pub stm: Vec<Statement>,
 }
 
@@ -21,9 +23,9 @@ pub struct Block {
 ///
 /// All the fields are applicable to both global and local scope.
 /// Except for `Variable`, which is to be used in global scope only.
-
 #[derive(Debug, Clone)]
 pub enum Hoistable {
+    Public(Box<Self>),
     Function {
         arg: Vec<Field<Type>>,
         gen: Generic,
@@ -53,7 +55,9 @@ impl Parser {
             self.ensure_closed('}');
         }
 
-        let mut dec = HashMap::new();
+        let mut dup: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
+        let mut flag = true;
+        let mut dec: HashMap<String, Span<Hoistable>> = HashMap::new();
         let stm_ref = unsafe { &mut *(&mut stm as *mut _) };
         let de = match self.de.back() {
             Some(n) => n - 1,
@@ -76,15 +80,29 @@ impl Parser {
             }
 
             'two: {
-                let (k, v) = match tmp {
+                let (k, mut v) = match tmp {
                     "fn" => self.fun(),
                     "struct" => self.strukt(),
                     // "use" => ,
                     // "extern" => self.ext(&mut ext),
+                    "pub" => {
+                        flag = true;
+                        continue 'one;
+                    }
                     _ => break 'two,
                 };
 
-                dec.insert(k, v);
+                if flag {
+                    flag = false;
+                    v.data = Hoistable::Public(Box::new(v.data));
+                }
+
+                if let Some(prev) = dec.get(&k) {
+                    dup.entry(k).or_insert(vec![prev.rng]).push(v.rng)
+                } else {
+                    dec.insert(k, v);
+                }
+
                 continue 'one;
             }
 
@@ -117,6 +135,10 @@ impl Parser {
                     }
                 }
             });
+        }
+
+        for (k, mut v) in dup {
+            self.err_mul(&mut v, format!("identifier `{k}` declared multiple times"));
         }
 
         Block { dec, stm }

@@ -12,6 +12,7 @@ pub struct Parser {
     pub line: Vec<usize>,
     pub rng: [usize; 2],
     pub idx: usize,
+    pub err: bool,
     pub de: VecDeque<usize>,
 }
 
@@ -23,6 +24,7 @@ impl Parser {
             path,
             data,
             line: Vec::new(),
+            err: false,
             rng: [0; 2],
             idx: usize::MAX,
             de: VecDeque::new(),
@@ -33,7 +35,12 @@ impl Parser {
         if let Some(c) = self._peek() {
             self.idx = self.idx.wrapping_add(1);
 
-            if c == '\n' {
+            if c == '\n'
+                && match self.line.last() {
+                    Some(v) => *v < self.idx,
+                    _ => true,
+                }
+            {
                 self.line.push(self.idx);
             }
 

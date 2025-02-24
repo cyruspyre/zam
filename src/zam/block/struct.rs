@@ -1,7 +1,9 @@
+use crate::parser::misc::{Span, ToSpan};
+
 use super::{Hoistable, Parser};
 
 impl Parser {
-    pub fn strukt(&mut self) -> (String, Hoistable) {
+    pub fn strukt(&mut self) -> (String, Span<Hoistable>) {
         let name = self.identifier(false);
         let rng = self.rng;
         let de = self.expect_char(&['<', '{']);
@@ -20,7 +22,8 @@ impl Parser {
                 gen,
                 fields: self.fields('}'),
                 rng,
-            },
+            }
+            .span(rng),
         )
     }
 }

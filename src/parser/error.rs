@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Add};
 
 use colored::Colorize;
 use unicode_width::UnicodeWidthStr;
@@ -35,11 +35,12 @@ impl Parser {
                     Some(n) => start + n - 1,
                     None => self.data.len() - 1,
                 };
-                let line = match self.line.iter().position(|n| n + 1 == start) {
-                    Some(n) => n + 2,
-                    None => 1,
-                }
-                .to_string();
+                let line = self
+                    .line
+                    .binary_search(&end)
+                    .unwrap_err()
+                    .add(1)
+                    .to_string();
                 let code = self.data[start..=end].into_iter().collect::<String>();
 
                 buf += &format!(
@@ -125,7 +126,7 @@ impl Parser {
         self.err(&msg)
     }
 
-    pub fn err_mul(&mut self, pnt: &mut [[usize; 2]], msg: &str) {
+    pub fn err_mul<S: AsRef<str> + Display>(&mut self, pnt: &mut [[usize; 2]], msg: S) {
         for n in &self.de {
             if let Ok(i) = pnt.binary_search_by_key(n, |rng| rng[0]) {
                 let n = n - self.data[..*n]
