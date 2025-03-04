@@ -1,101 +1,188 @@
-use std::{fmt::Display, ops::Add};
+use std::{
+    fmt::Display,
+    io::{stderr, BufWriter, Write},
+    ops::{Add, Sub},
+};
 
-use colored::Colorize;
-use unicode_width::UnicodeWidthStr;
+use colored::{Color, Colorize};
 
 use super::Parser;
 
 #[macro_export]
 macro_rules! err {
     ($($arg:tt)*) => {{
-        eprint!("{}: ", colored::Colorize::red("error"));
-        eprintln!($($arg)*);
+        // eprint!("{}: ", colored::Colorize::red("error"));
+        // eprintln!($($arg)*);
         std::process::exit(1);
     }};
 }
 
+pub enum LogType {
+    Error,
+    Warning,
+}
+
 impl Parser {
-    pub(super) fn code_line(&self, pnt: &mut [[usize; 2]]) {
+    pub fn log<S: Display + AsRef<str>>(&mut self, pnt: &[([usize; 2], S)], typ: LogType, msg: S) {
+        let color = match typ {
+            LogType::Error => Color::Red,
+            _ => Color::BrightYellow,
+        };
+        let last_line = self
+            .line
+            .binary_search(&pnt.last().unwrap().0[0])
+            .unwrap_err()
+            .add(1)
+            .to_string()
+            .len();
+        let pad = " ".repeat(last_line + 1);
+        let border = format!("{pad}- ").black();
         let mut iter = pnt.into_iter().peekable();
-        let pad = self.line.len().to_string().len();
-        let border = format!("{} - ", " ".repeat(pad)).black().to_string();
-        let mut buf = format!("{border}\n");
+        let mut io = BufWriter::new(stderr().lock());
+        let mut tmp = true;
 
-        while let Some(mut rng) = iter.next() {
+        while let Some((mut rng, label)) = iter.next() {
+            let idx = self.line.binary_search(&rng[0]).unwrap_err();
+            let mut start = match self.line.get(idx.wrapping_sub(1)) {
+                Some(v) => v + 1,
+                _ => 0,
+            };
+            let end = match self.line.get(idx) {
+                Some(v) => *v,
+                _ => self.data.len(),
+            } - 1;
+            let line = (idx + 1).to_string().black();
+            let code: String = self.data[start..=end].into_iter().collect();
+
+            if tmp {
+                io.write(
+                    format!(
+                        "{}{} {}:{}:{}\n{border}\n",
+                        " ".repeat(last_line),
+                        "-->".black(),
+                        self.path.display(),
+                        idx + 1,
+                        rng[0] - start + 1
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+                tmp = false;
+            }
+
+            io.write(
+                format!(
+                    "{line}{} {} {code}\n{border}",
+                    " ".repeat(last_line - line.len()),
+                    "|".black()
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+
+            let mut label = label;
+            let mut lebels = Vec::with_capacity(pnt.len());
+
             loop {
-                let mut start = match self.data[..=rng[0]]
-                    .into_iter()
-                    .rev()
-                    .position(|c| *c == '\n')
-                {
-                    Some(n) => rng[0] - n + 1,
-                    _ => 0,
-                };
-                let end = match self.data[start..].into_iter().position(|c| *c == '\n') {
-                    Some(n) => start + n - 1,
-                    None => self.data.len() - 1,
-                };
-                let line = self
-                    .line
-                    .binary_search(&end)
-                    .unwrap_err()
-                    .add(1)
-                    .to_string();
-                let code = self.data[start..=end].into_iter().collect::<String>();
+                io.write(
+                    format!(
+                        "{}{}",
+                        " ".repeat(rng[0] - start),
+                        "^".repeat(rng[1] - rng[0] + 1)
+                    )
+                    .color(color)
+                    .to_string()
+                    .as_bytes(),
+                )
+                .unwrap();
 
-                buf += &format!(
-                    "{}{code}\n{border}",
-                    format!("{line}{} | ", " ".repeat(pad - line.len())).black(),
-                );
-
-                loop {
-                    // in case of UB try removing this
-                    if start > rng[0] {
-                        rng[0] = start;
-                        continue;
-                    }
-
-                    let eof = (rng[0] > rng[1]) as usize;
-                    let space = code[0..rng[0] + eof - start].width();
-                    let point = end.min(rng[1]).checked_sub(rng[0]).unwrap_or_default() + 1;
-
-                    buf += &format!("{}{}", " ".repeat(space), "^".repeat(point).red());
-
-                    if let Some(tmp) = iter.peek() {
-                        if tmp[0] > end {
-                            break;
+                match iter.next_if(|v| v.0[1] < end) {
+                    Some((rng_, label_)) => {
+                        if !label.as_ref().is_empty() {
+                            lebels.push((
+                                lebels
+                                    .last()
+                                    .map(|v: &(usize, _)| v.0)
+                                    .unwrap_or_default()
+                                    .add(rng[0])
+                                    .sub(start),
+                                label,
+                            ));
                         }
 
                         start = rng[1] + 1;
-                        rng = iter.next().unwrap();
-                    } else {
+                        label = label_;
+                        rng = *rng_;
+                    }
+                    _ => {
+                        io.write(format!(" {label}\n").color(color).to_string().as_bytes())
+                            .unwrap();
                         break;
+                    }
+                };
+            }
+
+            let tmp = unsafe { &mut *(&mut lebels as *mut Vec<_>) };
+
+            while lebels.len() != 0 {
+                io.write(" ".repeat(border.len()).as_bytes()).unwrap();
+
+                for (i, (pad, label)) in lebels.iter().enumerate() {
+                    io.write(
+                        format!("{}| ", " ".repeat(*pad))
+                            .color(color)
+                            .to_string()
+                            .as_bytes(),
+                    )
+                    .unwrap();
+
+                    if lebels.len() - i == 1 {
+                        io.write(label.as_ref().color(color).to_string().as_bytes())
+                            .unwrap();
+                        tmp.pop();
                     }
                 }
 
-                buf.push('\n');
+                io.write(b"\n").unwrap();
+            }
 
-                if rng[1] > end {
-                    rng[0] = end + 2;
-                    continue;
-                }
-
-                break;
+            if iter.peek().is_some() {
+                io.write(format!("{border}\n").as_bytes()).unwrap();
             }
         }
 
-        eprint!("{buf}");
+        io.write(
+            format!(
+                "{}: {msg}\n",
+                match typ {
+                    LogType::Error => "error",
+                    _ => "warning",
+                }
+                .color(color)
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+
+        io.flush().unwrap()
     }
 
     pub fn err(&mut self, msg: &str) -> ! {
-        self.code_line(&mut [match self.rng == [0; 2] {
-            true => [self.idx; 2],
-            _ => self.rng,
-        }]);
+        self.log(
+            &mut [(
+                match self.rng == [0; 2] {
+                    true => [self.idx; 2],
+                    _ => self.rng,
+                },
+                "",
+            )],
+            LogType::Error,
+            msg,
+        );
         err!("{msg}")
     }
 
-    pub fn err_op<T: Display>(&mut self, mut after: bool, op: &[T]) -> ! {
+    pub fn err_op<T: Display>(&mut self, after: bool, op: &[T]) -> ! {
         let mut iter = op.iter().map(|e| format!("`{e}`"));
         let mut msg = "expected ".to_string();
 
@@ -111,14 +198,6 @@ impl Parser {
             msg += &format!(" or {s}");
         }
 
-        if let Some(n) = self.de.back() {
-            if *n == self.idx {
-                after = true
-            }
-        } else if self.idx > self.rng[1] && !self.data[self.idx].is_ascii_whitespace() {
-            self.rng.fill(0)
-        }
-
         if after {
             msg += " thereafter"
         }
@@ -126,7 +205,11 @@ impl Parser {
         self.err(&msg)
     }
 
-    pub fn err_mul<S: AsRef<str> + Display>(&mut self, pnt: &mut [[usize; 2]], msg: S) {
+    pub fn err_mul<'a, S: AsRef<str> + Display + From<&'a str>>(
+        &mut self,
+        pnt: &mut [[usize; 2]],
+        msg: S,
+    ) {
         for n in &self.de {
             if let Ok(i) = pnt.binary_search_by_key(n, |rng| rng[0]) {
                 let n = n - self.data[..*n]
@@ -138,7 +221,14 @@ impl Parser {
             }
         }
 
-        self.code_line(pnt);
+        self.log(
+            pnt.into_iter()
+                .map(|v| (*v, "".into()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+            LogType::Error,
+            msg,
+        );
         err!("{msg}")
     }
 
@@ -148,7 +238,7 @@ impl Parser {
     }
 
     pub fn eof(&mut self) -> ! {
-        self.code_line(&mut [[self.idx, 0]]);
+        self.log(&[([self.idx, 0], "")], LogType::Error, "unexpected end of file");
         err!("\nunexpected end of file")
     }
 }

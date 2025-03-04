@@ -11,14 +11,14 @@ use super::{fields::FieldValue, Parser};
 pub type Expression = Vec<Term>;
 
 impl FieldValue for Expression {
-    fn field_value(src: &mut Parser) -> Self {
-        src.exp(',', false).0
+    fn field_value(src: &mut Parser) -> Option<Self> {
+        Some(src.exp(',', false)?.0)
     }
 }
 
 impl GroupValue for Expression {
     fn group_value(src: &mut Parser) -> Option<Self> {
-        let (exp, used) = src.exp(',', false);
+        let (exp, used) = src.exp(',', false)?;
         let empty = exp.is_empty();
 
         if used {
@@ -59,7 +59,7 @@ impl PrettyExp for Vec<Term> {
 }
 
 impl Parser {
-    pub fn exp(&mut self, de: char, required: bool) -> (Expression, bool) {
+    pub fn exp(&mut self, de: char, required: bool) -> Option<(Expression, bool)> {
         let mut exp = Vec::new();
         let mut end = false;
         let last = match self.de.back() {
@@ -83,9 +83,9 @@ impl Parser {
                 match exp.last() {
                     Some(Term::Identifier(_)) => {
                         self.idx += 1;
-                        Term::Struct(self.fields('}'))
+                        Term::Struct(self.fields('}')?)
                     }
-                    _ => Term::Block(self.block(false)),
+                    _ => Term::Block(self.block(false)?),
                 }
             } else if c == '(' {
                 let mut tmp = self.group();
@@ -99,15 +99,15 @@ impl Parser {
                 self.num()
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;
-                Term::As(self.identifier(false))
+                Term::As(self.identifier(true)?)
             } else if match c {
                 'b' | 'r' if matches!(self.peek_more(), '\'' | '"') => true,
                 '\'' | '"' => true,
                 _ => false,
             } {
-                self.text()
+                self.text()?
             } else if c == '_' || c.is_ascii_alphabetic() {
-                Term::Identifier(self.identifier(false))
+                Term::Identifier(self.identifier(true)?)
             } else {
                 self._next();
 
@@ -188,6 +188,6 @@ impl Parser {
             }
         }
 
-        (exp, end)
+        Some((exp, end))
     }
 }

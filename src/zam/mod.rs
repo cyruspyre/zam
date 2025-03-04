@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{env::current_dir, path::PathBuf};
 
 use block::Block;
 
@@ -17,12 +17,16 @@ pub struct Zam {
 }
 
 impl Zam {
-    pub fn parse(path: PathBuf) -> Self {
-        let mut parser = Parser::new(path);
+    pub fn parse(path: PathBuf) -> Option<Self> {
+        let mut parser = Parser::new(
+            path.strip_prefix(current_dir().unwrap())
+                .unwrap()
+                .to_path_buf(),
+        );
 
-        Self {
-            block: parser.block(true),
+        Some(Self {
+            block: parser.block(true)?,
             parser,
-        }
+        })
     }
 }

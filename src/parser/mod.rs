@@ -1,4 +1,4 @@
-mod error;
+pub mod error;
 pub mod misc;
 
 use std::{collections::VecDeque, path::PathBuf};
@@ -21,8 +21,8 @@ impl Parser {
         let data = read_file(&path).chars().collect();
 
         Self {
-            path,
             data,
+            path,
             line: Vec::new(),
             err: false,
             rng: [0; 2],
@@ -145,14 +145,10 @@ impl Parser {
         buf
     }
 
-    pub fn identifier(&mut self, optional: bool) -> String {
+    pub fn identifier(&mut self, required: bool) -> Option<String> {
         let tmp = self.word();
 
-        if tmp.is_empty() {
-            if optional {
-                return tmp;
-            }
-
+        if required && tmp.is_empty() {
             let after = self._next().is_none();
 
             if !after && self.de.binary_search(&self.idx).is_err() {
@@ -160,9 +156,11 @@ impl Parser {
             }
 
             self.err_op(after, &["<identifier>"]);
+
+            return None;
         }
 
-        if tmp.chars().next().unwrap().is_numeric() {
+        if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
             self.err("identifiers cannot start with number")
         }
 
@@ -185,7 +183,7 @@ impl Parser {
             self.err("identifier cannot be a keyword")
         }
 
-        tmp
+        Some(tmp)
     }
 
     pub fn skip_whitespace(&mut self) -> char {
@@ -201,7 +199,7 @@ impl Parser {
         '\0'
     }
 
-    pub fn enclosed(&mut self, de: char) -> String {
+    pub fn enclosed(&mut self, de: char) -> Option<String> {
         self.expect_char(&[de]);
         self.rng = [self.idx; 2];
 
@@ -219,16 +217,18 @@ impl Parser {
                     self.err("expected a value inside it")
                 }
 
-                return buf;
+                return Some(buf);
             }
 
             buf.push(c);
         }
 
         self.err(&format!("unclosed delimiter `{de}` starting here"));
+
+        None
     }
 
-    pub fn ensure_closed(&mut self, de: char) {
+    pub fn ensure_closed(&mut self, de: char) -> Option<()> {
         let tmp = self.idx;
         let typ = self.data[tmp];
         let mut count = 0;
@@ -255,7 +255,6 @@ impl Parser {
                             self.idx = *v
                         }
                     } else if de == v && !self.might('}') {
-                        // string = self.idx;
                         continue 'one;
                     }
                 }
@@ -267,7 +266,7 @@ impl Parser {
                 if count == 0 {
                     self.de.push_back(self.idx);
                     self.idx = tmp;
-                    return;
+                    return Some(());
                 } else {
                     count -= 1
                 }
@@ -283,7 +282,9 @@ impl Parser {
         }
 
         pnt.push([self.idx, 0]);
-        self.err_mul(&mut pnt, &format!("unclosed delimeter. expected `{de}`"))
+        self.err_mul(&mut pnt, format!("unclosed delimeter. expected `{de}`"));
+
+        None
     }
 
     pub fn until_whitespace(&mut self) -> String {
@@ -329,7 +330,7 @@ impl Parser {
         false
     }
 
-    pub fn expect<T: ToString>(&mut self, op: &[T]) -> String {
+    pub fn expect<T: ToString>(&mut self, op: &[T]) -> Option<String> {
         let mut buf = String::new();
         let mut op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
         let de = match self.de.back() {
@@ -361,15 +362,17 @@ impl Parser {
             buf.push(c);
 
             if op.binary_search(&buf).is_ok() {
-                return buf;
+                return Some(buf);
             }
         }
 
-        self.err_op(buf.is_empty(), &op)
+        self.err_op(buf.is_empty(), &op);
+
+        None
     }
 
-    pub fn expect_char(&mut self, op: &[char]) -> char {
-        self.expect(op);
-        self.data[self.idx]
+    pub fn expect_char(&mut self, op: &[char]) -> Option<char> {
+        self.expect(op)?;
+        Some(self.data[self.idx])
     }
 }

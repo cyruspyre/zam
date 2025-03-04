@@ -21,6 +21,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
 
     let mut stack = vec![path.clone()];
     let mut srcs = HashMap::new();
+    let mut err = false;
 
     while let Some(v) = stack.pop() {
         let stamp = srcs.len();
@@ -47,7 +48,13 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
                                 .unwrap()
                         )
                     },
-                    Zam::parse(src),
+                    match Zam::parse(src) {
+                        Some(v) => v,
+                        _ => {
+                            err = true;
+                            continue;
+                        }
+                    },
                 );
             }
         }
@@ -75,9 +82,10 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
                 .parser
                 .err_rng(v.rng, "identifier `main` exists but it's not a function"),
         },
-        _ => src
-            .parser
-            .err_rng([0, src.parser.data.len().checked_sub(1).unwrap_or_default()], "expected `main` function"),
+        _ => src.parser.err_rng(
+            [0, src.parser.data.len().checked_sub(1).unwrap_or_default()],
+            "expected `main` function",
+        ),
     };
 
     println!("{:?}", srcs.keys())

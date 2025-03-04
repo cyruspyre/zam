@@ -1,14 +1,14 @@
 use super::{super::Parser, Statement};
 
 impl Parser {
-    pub fn cond(&mut self) -> Statement {
+    pub fn cond(&mut self) -> Option<Statement> {
         let mut cond = Vec::new();
         let mut default = None;
 
         loop {
-            let exp = self.exp('{', true).0;
+            let exp = self.exp('{', true)?.0;
 
-            let block = self.block(false);
+            let block = self.block(false)?;
             let mut tmp = self.idx;
 
             cond.push((exp, block));
@@ -22,7 +22,7 @@ impl Parser {
 
                 self.idx = tmp;
 
-                default = Some(self.block(false))
+                default = Some(self.block(false)?)
             } else {
                 self.idx = tmp
             }
@@ -30,6 +30,6 @@ impl Parser {
             break;
         }
 
-        Statement::Conditional { cond, default }
+        Some(Statement::Conditional { cond, default })
     }
 }

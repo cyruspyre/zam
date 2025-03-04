@@ -13,25 +13,22 @@ pub struct Type {
 }
 
 impl FieldValue for Type {
-    fn field_value(src: &mut Parser) -> Self {
+    fn field_value(src: &mut Parser) -> Option<Self> {
         src.typ()
     }
 }
 
 impl GroupValue for Type {
-    fn group_value(src: &mut Parser) -> Option<Self>
-    where
-        Self: Sized,
-    {
+    fn group_value(src: &mut Parser) -> Option<Self> {
         match src.skip_whitespace() {
             ')' => None,
-            _ => Some(src.typ()),
+            _ => Some(src.typ()?),
         }
     }
 }
 
 impl Parser {
-    pub fn typ(&mut self) -> Type {
+    pub fn typ(&mut self) -> Option<Type> {
         let mut ptr = [0; 2];
         let mut tmp = true;
 
@@ -63,7 +60,7 @@ impl Parser {
                 self.rng.fill(self.idx + 1);
                 (String::new(), self.group())
             }
-            _ => (self.identifier(false), Vec::new()),
+            _ => (self.identifier(true)?, Vec::new()),
         };
 
         if !tuple && self.might('<') {
@@ -75,7 +72,7 @@ impl Parser {
                 }
 
                 self.rng.fill(0);
-                sub.push(self.typ());
+                sub.push(self.typ()?);
 
                 if self.might('>') {
                     break;
@@ -95,12 +92,12 @@ impl Parser {
             self.err("cannot use nullable indicator in pointers");
         }
 
-        Type {
+        Some(Type {
             name,
             sub,
             ptr: ptr[!raw as usize],
             raw,
             null,
-        }
+        })
     }
 }

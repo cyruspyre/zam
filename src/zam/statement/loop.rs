@@ -13,13 +13,13 @@ fn _break() -> Block {
 }
 
 impl Parser {
-    pub fn r#loop(&mut self, parent_stm: &mut Vec<Statement>, typ: &str) -> Statement {
+    pub fn r#loop(&mut self, parent_stm: &mut Vec<Statement>, typ: &str) -> Option<Statement> {
         let mut stm = Vec::new();
 
         if let Some(v) = match typ {
             "for" => {
                 let (val, exp) = (
-                    format!("{}{}", stm.len(), self.identifier(false)),
+                    format!("{}{}", stm.len(), self.identifier(true)?),
                     stm.len().to_string(),
                 );
                 let nullable = format!("_{val}");
@@ -28,7 +28,7 @@ impl Parser {
                 parent_stm.push(Statement::Variable {
                     name: exp.clone(),
                     typ: None,
-                    val: self.exp('{', true).0,
+                    val: self.exp('{', true)?.0,
                     cte: false,
                 });
 
@@ -68,7 +68,7 @@ impl Parser {
             }
             "while" => Some(Statement::Conditional {
                 cond: vec![(
-                    vec![Term::Neg, Term::Group(self.exp('{', true).0)],
+                    vec![Term::Neg, Term::Group(self.exp('{', true)?.0)],
                     _break(),
                 )],
                 default: None,
@@ -78,6 +78,6 @@ impl Parser {
             stm.push(v)
         }
 
-        Statement::Loop(self._block(false, stm))
+        Some(Statement::Loop(self._block(false, stm)?))
     }
 }

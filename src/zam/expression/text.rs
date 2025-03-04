@@ -12,7 +12,7 @@ enum WTF {
 }
 
 impl Parser {
-    pub fn text(&mut self) -> Term {
+    pub fn text(&mut self) -> Option<Term> {
         let [typ, de] = match self.next() {
             c if c.is_ascii_alphabetic() => [c, self.next()],
             c => [' ', c],
@@ -41,7 +41,7 @@ impl Parser {
                     }
                 } else if c == '{' {
                     self.rng.fill(self.idx);
-                    buf.push(WTF::Exp(self.exp('}', true).0));
+                    buf.push(WTF::Exp(self.exp('}', true)?.0));
                     self.de.pop_front();
                     self.idx += 1;
                     continue;
@@ -63,13 +63,13 @@ impl Parser {
         if de == '"' {
             if buf.len() == 1 {
                 return match buf.pop().unwrap() {
-                    WTF::Exp(v) => Term::Group(vec![
+                    WTF::Exp(v) => Some(Term::Group(vec![
                         flatten(v),
                         Term::Access(false),
                         Term::Identifier("to_string".into()),
                         Term::Tuple(Vec::new()),
-                    ]),
-                    WTF::Buf(data) => Term::String { data, byte: false },
+                    ])),
+                    WTF::Buf(data) => Some(Term::String { data, byte: false }),
                 };
             }
 
@@ -107,10 +107,10 @@ impl Parser {
                 stm.push(Statement::Expression(exp));
             }
 
-            return Term::Block(Block {
+            return Some(Term::Block(Block {
                 dec: HashMap::new(),
                 stm,
-            });
+            }));
         }
 
         let msg = match buf.pop() {
@@ -123,14 +123,14 @@ impl Parser {
                     "byte character literal must be ascii"
                 } else {
                     return match typ {
-                        'b' => Term::Integer {
+                        'b' => Some(Term::Integer {
                             val: buf.as_bytes()[0].into(),
                             bit: 8,
                             neg: false,
                             rng: self.rng,
                             sign: false,
-                        },
-                        _ => Term::Char(buf.chars().next().unwrap()),
+                        }),
+                        _ => Some(Term::Char(buf.chars().next().unwrap())),
                     };
                 }
             }

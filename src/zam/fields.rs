@@ -10,12 +10,12 @@ pub struct Field<T> {
 }
 
 impl Parser {
-    pub fn fields<T: FieldValue>(&mut self, de: char) -> Vec<Field<T>> {
+    pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Vec<Field<T>>> {
         self.ensure_closed(de);
         let mut fields = Vec::new();
 
         loop {
-            let name = self.identifier(true);
+            let name = self.identifier(false)?;
             let one = self.rng;
 
             if name.is_empty() {
@@ -25,13 +25,14 @@ impl Parser {
                     }
                 }
 
+                // self.rng.fill(self.idx);
                 self.err_op(false, &["<identifier>"])
             }
 
             self.expect_char(&[':']);
             self.skip_whitespace();
             let two = self.idx + 1;
-            let data = T::field_value(self);
+            let data = T::field_value(self)?;
             self.rng = [two, self.idx];
 
             while let Some(v) = self.data.get(self.rng[1]) {
@@ -51,6 +52,7 @@ impl Parser {
             if self.might(de) {
                 break;
             }
+            println!("{}", self.data[self.idx]);
 
             self.expect_char(&[',']);
         }
@@ -73,10 +75,12 @@ impl Parser {
 
         self.de.pop_back();
 
-        fields
+        Some(fields)
     }
 }
 
 pub trait FieldValue {
-    fn field_value(src: &mut Parser) -> Self;
+    fn field_value(src: &mut Parser) -> Option<Self>
+    where
+        Self: Sized;
 }

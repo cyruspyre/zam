@@ -49,6 +49,6 @@ pub fn start() {
 
     match name.as_str() {
         "new" => init(path, cfg, cmd),
-        _ => zam(path.canonicalize().unwrap(), Config::load(cfg)),
+        _ => zam(path, Config::load(cfg)),
     }
 }

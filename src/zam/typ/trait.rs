@@ -7,21 +7,21 @@ pub struct Trait {
 }
 
 impl Parser {
-    pub fn trt(&mut self) -> Trait {
-        let name = self.identifier(false);
+    pub fn trt(&mut self) -> Option<Trait> {
+        let name = self.identifier(true)?;
         let mut sub = Vec::new();
 
         if self.might('<') {
             loop {
-                sub.push(self.trt());
+                sub.push(self.trt()?);
 
-                match self.expect_char(&[',', '>']) {
+                match self.expect_char(&[',', '>'])? {
                     ',' => {}
                     _ => break,
                 }
             }
         }
 
-        Trait { name, sub }
+        Some(Trait { name, sub })
     }
 }

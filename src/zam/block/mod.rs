@@ -3,7 +3,7 @@ mod r#struct;
 
 use std::collections::HashMap;
 
-use crate::parser::misc::Span;
+use crate::parser::{error::LogType, misc::Span};
 
 use super::{
     expression::Expression,
@@ -45,17 +45,17 @@ pub enum Hoistable {
 }
 
 impl Parser {
-    pub fn block(&mut self, global: bool) -> Block {
+    pub fn block(&mut self, global: bool) -> Option<Block> {
         self._block(global, Vec::new())
     }
 
-    pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Block {
+    pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Option<Block> {
         if !global {
             self.expect(&['{']);
             self.ensure_closed('}');
         }
 
-        let mut dup: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
+        let mut dup = HashMap::new();
         let mut flag = true;
         let mut dec: HashMap<String, Span<Hoistable>> = HashMap::new();
         let stm_ref = unsafe { &mut *(&mut stm as *mut _) };
@@ -81,8 +81,8 @@ impl Parser {
 
             'two: {
                 let (k, mut v) = match tmp {
-                    "fn" => self.fun(),
-                    "struct" => self.strukt(),
+                    "fn" => self.fun()?,
+                    "struct" => self.strukt()?,
                     // "use" => ,
                     // "extern" => self.ext(&mut ext),
                     "pub" => {
@@ -98,7 +98,9 @@ impl Parser {
                 }
 
                 if let Some(prev) = dec.get(&k) {
-                    dup.entry(k).or_insert(vec![prev.rng]).push(v.rng)
+                    dup.entry(k)
+                        .or_insert(vec![(prev.rng, "first declared here")])
+                        .push((v.rng, ""))
                 } else {
                     dec.insert(k, v);
                 }
@@ -113,13 +115,13 @@ impl Parser {
             }
 
             stm.push(match tmp {
-                "let" | "cte" => self.var(tmp == "cte"),
-                "if" => self.cond(),
-                "for" | "loop" | "while" => self.r#loop(stm_ref, tmp),
+                "let" | "cte" => self.var(tmp == "cte")?,
+                "if" => self.cond()?,
+                "for" | "loop" | "while" => self.r#loop(stm_ref, tmp)?,
                 _ => {
                     self.idx = stamp;
 
-                    let (exp, used) = self.exp(';', false);
+                    let (exp, used) = self.exp(';', false)?;
 
                     if used {
                         self._next();
@@ -137,10 +139,14 @@ impl Parser {
             });
         }
 
-        for (k, mut v) in dup {
-            self.err_mul(&mut v, format!("identifier `{k}` declared multiple times"));
+        for (k, v) in dup {
+            self.log(
+                &v,
+                LogType::Error,
+                &format!("identifier `{k}` declared multiple times"),
+            );
         }
 
-        Block { dec, stm }
+        Some(Block { dec, stm })
     }
 }
