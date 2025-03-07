@@ -17,3 +17,11 @@ fn main() {
     free(arr);
 }
 ```
+
+### Todo
+
+1. Barebone Compiler (AOT)
+2. Rewrite Zam in Zam
+3. Interpreter (Probably bytecode)
+4. Compile Time Evaluation
+5. JIT (Optional)
