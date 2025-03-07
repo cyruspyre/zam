@@ -18,8 +18,7 @@ fn main() {
 }
 ```
 
-### Todo
-
+## Todo
 1. Barebone Compiler (AOT)
 2. Rewrite Zam in Zam
 3. Interpreter (Probably bytecode)
