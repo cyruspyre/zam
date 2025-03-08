@@ -3,14 +3,14 @@ use hexf_parse::parse_hexf64;
 use super::{Parser, Term};
 
 impl Parser {
-    pub fn num(&mut self) -> Term {
+    pub fn num(&mut self) -> Option<Term> {
         let mut buf = [const { String::new() }; 2];
         let mut suf = 'i';
         let neg = self.might('-');
 
         if neg {
             if !self.skip_whitespace().is_ascii_digit() {
-                return Term::Sub;
+                return Some(Term::Sub);
             }
         }
 
@@ -103,7 +103,7 @@ impl Parser {
                     )
                 }
 
-                self.err(&msg)
+                self.err(msg)?
             }
         }
 
@@ -112,9 +112,9 @@ impl Parser {
                 if let Some(val) = match rad {
                     10 => buf[0].parse().ok(),
                     16 => parse_hexf64(&format!("0x{}", buf[0]), false).ok(),
-                    _ => self.err("only decimal and hexadecimal are allowed for float literals"),
+                    _ => self.err("only decimal and hexadecimal are allowed for float literals")?,
                 } {
-                    return Term::Float { val, bit };
+                    return Some(Term::Float { val, bit });
                 }
             }
             _ => 'tmp: {
@@ -127,17 +127,17 @@ impl Parser {
                     val = val.wrapping_neg()
                 }
 
-                return Term::Integer {
+                return Some(Term::Integer {
                     val,
                     bit,
                     neg,
                     rng: self.rng,
                     sign: suf == 'i',
-                };
+                });
             }
         }
 
-        self.err(&format!(
+        self.err(format!(
             "invalid {} {} literal",
             match rad {
                 2 => "binary",
@@ -149,6 +149,6 @@ impl Parser {
                 'f' => "float",
                 _ => "integer",
             }
-        ))
+        ))?
     }
 }

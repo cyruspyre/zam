@@ -49,7 +49,7 @@ impl Parser {
         }
 
         if ptr[0] > 0 && ptr[1] > 0 {
-            self.err("cannot mix pointers and reference")
+            self.err("cannot mix pointers and reference")?
         }
 
         let tuple = self.skip_whitespace() == '(';

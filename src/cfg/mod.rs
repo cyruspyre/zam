@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::exit};
 
 use serde::{de::Visitor, Deserialize, Deserializer};
 use toml::de::Error;
@@ -98,5 +98,6 @@ fn map_err(path: PathBuf, data: String, err: Error) -> ! {
         data: chars,
         ..Default::default()
     }
-    .err_rng(rng, err.message())
+    .err_rng(rng, err.message());
+    exit(1)
 }

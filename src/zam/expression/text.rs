@@ -37,7 +37,7 @@ impl Parser {
                         '\'' => '\'',
                         '\\' => '\\',
                         '{' if de == '"' => '{',
-                        _ => self.err_rng([self.idx - 1, self.idx], "unknown character escape"),
+                        _ => self.err_rng([self.idx - 1, self.idx], "unknown character escape")?,
                     }
                 } else if c == '{' {
                     self.rng.fill(self.idx);
@@ -138,7 +138,7 @@ impl Parser {
             _ => "cannot use interpolation in character literal",
         };
 
-        self.err(msg);
+        self.err(msg)?
     }
 }
 

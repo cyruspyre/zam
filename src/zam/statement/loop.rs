@@ -23,7 +23,7 @@ impl Parser {
                     stm.len().to_string(),
                 );
                 let nullable = format!("_{val}");
-                self.expect(&["in"]);
+                self.expect(&["in"])?;
 
                 parent_stm.push(Statement::Variable {
                     name: exp.clone(),

@@ -96,7 +96,7 @@ impl Parser {
                     _ => Term::Tuple(tmp),
                 }
             } else if c.is_ascii_digit() || c == '-' && exp.is_empty() {
-                self.num()
+                self.num()?
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;
                 Term::As(self.identifier(true)?)
@@ -124,7 +124,7 @@ impl Parser {
                     }
 
                     self.rng.fill(0);
-                    self.err_op(false, &[de.to_string().as_str(), "<operator>"])
+                    self.err_op(false, &[de.to_string().as_str(), "<operator>"])?
                 }
             };
 
@@ -132,7 +132,7 @@ impl Parser {
         }
 
         if required && exp.is_empty() {
-            self.err_op(true, &["<expression>"])
+            self.err_op(true, &["<expression>"])?
         }
 
         let mut order = [2, 0];

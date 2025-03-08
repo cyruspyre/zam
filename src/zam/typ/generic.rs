@@ -10,7 +10,7 @@ impl Parser {
             let tmp = self.identifier(false)?;
 
             if tmp.is_empty() {
-                self.err_op(false, &[">", "<identifier>"])
+                self.err_op(false, &[">", "<identifier>"])?
             }
 
             let de = self.expect_char(&[':', '>'])?;

@@ -1,4 +1,7 @@
-use crate::parser::misc::{Span, ToSpan};
+use crate::{
+    parser::misc::{Span, ToSpan},
+    zam::typ::Type,
+};
 
 use super::{Hoistable, Parser};
 
@@ -17,16 +20,28 @@ impl Parser {
         }
 
         let arg = self.fields(')')?;
-
-        self.expect(&["->"]);
+        let ret = match self.skip_whitespace() {
+            '{' => Type {
+                name: "()".into(),
+                sub: Vec::new(),
+                ptr: 0,
+                raw: false,
+                null: 0,
+            },
+            _ => {
+                self.expect(&["->"])?;
+                self.typ()?
+            }
+        };
 
         Some((
             name,
             Hoistable::Function {
                 arg,
                 gen,
-                ret: self.typ()?,
+                ret,
                 block: Some(self.block(false)?),
+                public: false,
             }
             .span(rng),
         ))

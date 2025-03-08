@@ -75,7 +75,7 @@ impl Term {
 
             if err {
                 src.rng = *rng;
-                src.err(&format!(
+                src.err(format!(
                     "`{}{bit}` has a range of `{}..={max}`",
                     if *sign { 'i' } else { 'u' },
                     min as i64

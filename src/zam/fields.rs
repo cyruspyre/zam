@@ -26,7 +26,7 @@ impl Parser {
                 }
 
                 // self.rng.fill(self.idx);
-                self.err_op(false, &["<identifier>"])
+                self.err_op(false, &["<identifier>"])?
             }
 
             self.expect_char(&[':']);
@@ -70,7 +70,7 @@ impl Parser {
                 continue;
             }
 
-            self.err_mul(v, "declared multiple times")
+            self.err_mul(v, "declared multiple times")?
         }
 
         self.de.pop_back();

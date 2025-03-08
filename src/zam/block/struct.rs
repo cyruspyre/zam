@@ -22,6 +22,7 @@ impl Parser {
                 gen,
                 fields: self.fields('}')?,
                 rng,
+                public: false,
             }
             .span(rng),
         ))

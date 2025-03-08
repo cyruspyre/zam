@@ -22,7 +22,7 @@ impl Zam {
             path.strip_prefix(current_dir().unwrap())
                 .unwrap()
                 .to_path_buf(),
-        );
+        )?;
 
         Some(Self {
             block: parser.block(true)?,

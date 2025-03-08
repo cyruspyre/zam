@@ -3,7 +3,10 @@ mod r#struct;
 
 use std::collections::HashMap;
 
-use crate::parser::{error::LogType, misc::Span};
+use crate::parser::{
+    log::{Log, Point},
+    misc::Span,
+};
 
 use super::{
     expression::Expression,
@@ -25,22 +28,24 @@ pub struct Block {
 /// Except for `Variable`, which is to be used in global scope only.
 #[derive(Debug, Clone)]
 pub enum Hoistable {
-    Public(Box<Self>),
     Function {
         arg: Vec<Field<Type>>,
         gen: Generic,
         ret: Type,
         block: Option<Block>,
+        public: bool,
     },
     Struct {
         gen: Generic,
         fields: Vec<Field<Type>>,
         rng: [usize; 2],
+        public: bool,
     },
     Variable {
         typ: Option<Type>,
         val: Expression,
         cte: bool,
+        public: bool,
     },
 }
 
@@ -51,7 +56,7 @@ impl Parser {
 
     pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Option<Block> {
         if !global {
-            self.expect(&['{']);
+            self.expect(&['{'])?;
             self.ensure_closed('}');
         }
 
@@ -94,13 +99,17 @@ impl Parser {
 
                 if flag {
                     flag = false;
-                    v.data = Hoistable::Public(Box::new(v.data));
+                    match &mut v.data {
+                        Hoistable::Function { public, .. }
+                        | Hoistable::Struct { public, .. }
+                        | Hoistable::Variable { public, .. } => *public = true,
+                    }
                 }
 
                 if let Some(prev) = dec.get(&k) {
                     dup.entry(k)
-                        .or_insert(vec![(prev.rng, "first declared here")])
-                        .push((v.rng, ""))
+                        .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
+                        .push((v.rng, Point::Error, ""))
                 } else {
                     dec.insert(k, v);
                 }
@@ -109,7 +118,7 @@ impl Parser {
             }
 
             if global {
-                self.err("expected keyword of global context")
+                self.err("expected keyword of global context")?
             } else if stamp == de {
                 continue;
             }
@@ -142,7 +151,7 @@ impl Parser {
         for (k, v) in dup {
             self.log(
                 &v,
-                LogType::Error,
+                Log::Error,
                 &format!("identifier `{k}` declared multiple times"),
             );
         }

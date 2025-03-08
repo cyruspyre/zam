@@ -1,5 +1,6 @@
 pub mod error;
 pub mod misc;
+pub mod log;
 
 use std::{collections::VecDeque, path::PathBuf};
 
@@ -12,23 +13,23 @@ pub struct Parser {
     pub line: Vec<usize>,
     pub rng: [usize; 2],
     pub idx: usize,
-    pub err: bool,
+    pub err: usize,
     pub de: VecDeque<usize>,
 }
 
 impl Parser {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> Option<Self> {
         let data = read_file(&path).chars().collect();
 
-        Self {
+        Some(Self {
             data,
             path,
             line: Vec::new(),
-            err: false,
+            err: 0,
             rng: [0; 2],
             idx: usize::MAX,
             de: VecDeque::new(),
-        }
+        })
     }
 
     pub fn _next<'a>(&'a mut self) -> Option<char> {
@@ -51,11 +52,7 @@ impl Parser {
     }
 
     pub fn next(&mut self) -> char {
-        if let Some(c) = self._next() {
-            return c;
-        }
-
-        self.eof()
+        self._next().unwrap()
     }
 
     pub fn next_if(&mut self, op: &[char]) -> char {
@@ -88,11 +85,11 @@ impl Parser {
                     .is_some_and(|c| *c == '/')
             {
                 for c in &self.data[self.idx.wrapping_add(1)..] {
-                    self.idx = self.idx.wrapping_add(1);
-
                     if *c == '\n' {
                         return self._peek();
                     }
+                    
+                    self.idx = self.idx.wrapping_add(1);
                 }
             }
 
@@ -161,7 +158,7 @@ impl Parser {
         }
 
         if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-            self.err("identifiers cannot start with number")
+            self.err("identifiers cannot start with number")?
         }
 
         if matches!(
@@ -180,7 +177,7 @@ impl Parser {
                 | "struct"
                 | "extern"
         ) {
-            self.err("identifier cannot be a keyword")
+            self.err("identifier cannot be a keyword")?
         }
 
         Some(tmp)
@@ -214,7 +211,7 @@ impl Parser {
                 self.rng[1] = self.idx;
 
                 if buf.is_empty() {
-                    self.err("expected a value inside it")
+                    self.err("expected a value inside it")?
                 }
 
                 return Some(buf);
@@ -223,9 +220,7 @@ impl Parser {
             buf.push(c);
         }
 
-        self.err(&format!("unclosed delimiter `{de}` starting here"));
-
-        None
+        self.err(format!("unclosed delimiter `{de}` starting here"))?
     }
 
     pub fn ensure_closed(&mut self, de: char) -> Option<()> {
@@ -329,7 +324,8 @@ impl Parser {
 
         false
     }
-
+    
+    #[must_use]
     pub fn expect<T: ToString>(&mut self, op: &[T]) -> Option<String> {
         let mut buf = String::new();
         let mut op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();

@@ -526,6 +526,7 @@ dependencies = [
  "hexf-parse",
  "inkwell",
  "serde",
+ "strsim",
  "toml",
  "unicode-segmentation",
  "unicode-width",
