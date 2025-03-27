@@ -1,10 +1,17 @@
 pub mod error;
-pub mod misc;
 pub mod log;
+pub mod misc;
+pub mod span;
 
-use std::{collections::VecDeque, path::PathBuf};
+use std::{
+    collections::VecDeque,
+    fmt::{Debug, Display},
+    path::PathBuf,
+};
 
-use misc::{read_file, ValidID};
+use log::{Log, Point};
+use misc::{read_file, Context, Either, ValidID};
+use span::{Identifier, Span, ToSpan};
 
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -55,24 +62,48 @@ impl Parser {
         self._next().unwrap()
     }
 
-    pub fn next_if(&mut self, op: &[char]) -> char {
-        while let Some(c) = self._peek() {
+    pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Context<bool, String> {
+        let tmp = self.idx;
+        let mut op: Vec<_> = op.into_iter().map(|v| v.to_string()).collect();
+        let mut buf = String::new();
+        let mut ctx = false;
+
+        op.sort_unstable();
+
+        while let Some(c) = self._next() {
             if c.is_ascii_whitespace() {
-                self.next();
+                if buf.len() != 0 {
+                    break;
+                }
+
                 continue;
             }
 
-            for t in op {
-                if c == *t {
-                    self.next();
-                    return c;
-                }
+            if buf.is_empty() {
+                self.rng.fill(self.idx);
             }
 
-            break;
+            buf.push(c);
+
+            if op.binary_search(&buf).is_ok() {
+                ctx = true;
+                break;
+            }
         }
 
-        '\0'
+        self.rng[1] = self.idx;
+
+        if !ctx {
+            self.rng[1] -= 1;
+            self.idx = tmp;
+        }
+
+        Context { ctx, data: buf }
+    }
+
+    pub fn next_char_if(&mut self, op: &[char]) -> char {
+        self.next_if(op);
+        self.data[self.idx]
     }
 
     pub fn _peek(&mut self) -> Option<char> {
@@ -88,7 +119,7 @@ impl Parser {
                     if *c == '\n' {
                         return self._peek();
                     }
-                    
+
                     self.idx = self.idx.wrapping_add(1);
                 }
             }
@@ -142,19 +173,18 @@ impl Parser {
         buf
     }
 
-    pub fn identifier(&mut self, required: bool) -> Option<String> {
+    pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
         let tmp = self.word();
+        let rng = self.rng;
 
         if required && tmp.is_empty() {
-            let after = self._next().is_none();
+            let after = self.until_whitespace().is_empty();
 
             if !after && self.de.binary_search(&self.idx).is_err() {
-                self.rng.fill(0)
+                self.rng = rng
             }
 
-            self.err_op(after, &["<identifier>"]);
-
-            return None;
+            self.err_op(after, &["<identifier>"])?
         }
 
         if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -180,7 +210,7 @@ impl Parser {
             self.err("identifier cannot be a keyword")?
         }
 
-        Some(tmp)
+        Some(tmp.span(rng))
     }
 
     pub fn skip_whitespace(&mut self) -> char {
@@ -223,6 +253,7 @@ impl Parser {
         self.err(format!("unclosed delimiter `{de}` starting here"))?
     }
 
+    #[must_use]
     pub fn ensure_closed(&mut self, de: char) -> Option<()> {
         let tmp = self.idx;
         let typ = self.data[tmp];
@@ -244,7 +275,7 @@ impl Parser {
                     }
 
                     if v == '{' && !self.might('{') {
-                        self.ensure_closed('}');
+                        self.ensure_closed('}')?;
 
                         if let Some(v) = self.de.back() {
                             self.idx = *v
@@ -260,6 +291,7 @@ impl Parser {
             } else if c == de {
                 if count == 0 {
                     self.de.push_back(self.idx);
+                    self.rng.fill(self.idx);
                     self.idx = tmp;
                     return Some(());
                 } else {
@@ -270,14 +302,19 @@ impl Parser {
 
         let mut pnt = Vec::with_capacity(3);
 
-        pnt.push([tmp; 2]);
+        pnt.push(([tmp; 2], Point::Info, "starting here"));
 
         if string != 0 {
-            pnt.push([string; 2])
+            pnt.push(([string; 2], Point::Error, ""))
         }
 
-        pnt.push([self.idx, 0]);
-        self.err_mul(&mut pnt, format!("unclosed delimeter. expected `{de}`"));
+        pnt.push(([self.idx, 0], Point::Error, ""));
+
+        self.log(
+            &pnt,
+            Log::Error,
+            &format!("unclosed delimeter. expected `{de}`"),
+        );
 
         None
     }
@@ -307,64 +344,34 @@ impl Parser {
     }
 
     pub fn might(&mut self, t: char) -> bool {
-        while let Some(c) = self._peek() {
-            if c.is_ascii_whitespace() {
-                self.next();
-                continue;
-            }
+        let tmp = self.next_char_if(&[t]) == t;
 
-            if c == t {
-                self.next();
-                self.rng = [self.idx; 2];
-                return true;
-            }
-
-            break;
+        if tmp {
+            self.rng.fill(self.idx)
         }
 
-        false
+        tmp
     }
-    
+
     #[must_use]
-    pub fn expect<T: ToString>(&mut self, op: &[T]) -> Option<String> {
-        let mut buf = String::new();
-        let mut op = op.into_iter().map(|v| v.to_string()).collect::<Vec<_>>();
-        let de = match self.de.back() {
-            Some(n) => *n,
-            _ => 0,
-        };
+    pub fn expect<T: Display + Debug>(&mut self, op: &[T]) -> Option<String> {
+        let rng = self.rng;
+        let tmp = self.next_if(op);
 
-        op.sort_unstable();
+        if !tmp.ctx {
+            let multiline = self
+                .line
+                .get(self.line.binary_search(&rng[0]).either())
+                .is_some_and(|v| self.rng[0] > *v);
 
-        while let Some(c) = self._next() {
-            if self.idx == de {
-                break;
+            if multiline {
+                self.rng = rng
             }
 
-            if c.is_ascii_whitespace() {
-                if buf.len() != 0 {
-                    break;
-                }
-
-                continue;
-            }
-
-            if buf.is_empty() {
-                self.rng = [self.idx; 2];
-            } else {
-                self.rng[1] += 1;
-            }
-
-            buf.push(c);
-
-            if op.binary_search(&buf).is_ok() {
-                return Some(buf);
-            }
+            self.err_op(tmp.is_empty() || multiline, &op)?
         }
 
-        self.err_op(buf.is_empty(), &op);
-
-        None
+        Some(tmp.data)
     }
 
     pub fn expect_char(&mut self, op: &[char]) -> Option<char> {

@@ -5,7 +5,8 @@ use super::{Parser, Term};
 impl Parser {
     pub fn num(&mut self) -> Option<Term> {
         let mut buf = [const { String::new() }; 2];
-        let mut suf = 'i';
+        let mut suf = '\0';
+        let mut dot = false;
         let neg = self.might('-');
 
         if neg {
@@ -42,8 +43,8 @@ impl Parser {
                 c != '.' && !c.is_ascii_alphabetic()
             } {
                 buf[0].push('.');
+                dot = true;
                 c = self.next();
-                suf = 'f';
             }
 
             match c {
@@ -66,10 +67,7 @@ impl Parser {
                     let tmp = self.rng[0];
 
                     if self.word() == "size" && suf != 'f' {
-                        // hard coded native size for now
-                        buf[0] += "64"
-                    } else if buf[1].is_empty() {
-                        suf = '\0'
+                        buf[0] += "size"
                     }
 
                     self.rng[0] = tmp;
@@ -80,31 +78,29 @@ impl Parser {
 
         self.rng[1] = self.idx;
 
-        if buf[1].is_empty() && suf != '\0' {
-            buf[1] += "0";
-        } else {
+        if buf[1].len() != 0 {
             buf.swap(0, 1)
         }
 
-        let bit = buf[1].parse().unwrap_or(65u32);
+        let bit = match buf[1].as_str() {
+            "" if suf == '\0' => 0,
+            "size" => u32::MAX,
+            v => 'a: {
+                let tmp = v.parse().unwrap_or_default();
 
-        'tmp: {
-            if bit != 0 {
-                let mut msg = "invalid suffix".to_string();
-
-                if suf != '\0' {
-                    msg += &format!(
-                        ". expected {suf}{{{}}}",
-                        match suf {
-                            'f' if !matches!(bit, 32 | 64) => "32|64",
-                            _ if !matches!(bit, 1..=64) => "1..=64|size",
-                            _ => break 'tmp,
-                        },
-                    )
-                }
-
-                self.err(msg)?
+                self.err(format!(
+                    "invalid suffix. expected {suf}{{{}}}",
+                    match suf {
+                        'f' if !matches!(tmp, 32 | 64) => "32|64",
+                        _ if !matches!(tmp, 1..=64) => "1..=64|size",
+                        _ => break 'a tmp,
+                    },
+                ))?
             }
+        };
+
+        if dot {
+            suf = 'f'
         }
 
         match suf {
@@ -123,16 +119,16 @@ impl Parser {
                     _ => break 'tmp,
                 };
 
-                if neg {
-                    val = val.wrapping_neg()
-                }
-
                 return Some(Term::Integer {
+                    sign: if neg {
+                        val = val.wrapping_neg();
+                        Some(true)
+                    } else {
+                        None
+                    },
                     val,
                     bit,
                     neg,
-                    rng: self.rng,
-                    sign: suf == 'i',
                 });
             }
         }

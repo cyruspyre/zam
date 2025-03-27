@@ -2,13 +2,14 @@ mod conditional;
 mod r#loop;
 mod variable;
 
-use super::{expression::Expression, typ::Type, Block};
+use crate::parser::span::Identifier;
+
+use super::{expression::Expression, Block};
 
 #[derive(Debug, Clone)]
 pub enum Statement {
     Variable {
-        name: String,
-        typ: Option<Type>,
+        name: Identifier,
         val: Expression,
         cte: bool,
     },
@@ -19,7 +20,7 @@ pub enum Statement {
     Loop(Block),
     Block(Block),
     Expression(Expression),
-    Break(String),
-    Continue(String),
+    Break(Identifier),
+    Continue(Identifier),
     Return(Expression),
 }

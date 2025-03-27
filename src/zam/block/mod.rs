@@ -3,10 +3,10 @@ mod r#struct;
 
 use std::collections::HashMap;
 
-use crate::parser::{
+use crate::{misc::Bypass, parser::{
     log::{Log, Point},
-    misc::Span,
-};
+    span::Identifier,
+}};
 
 use super::{
     expression::Expression,
@@ -18,7 +18,7 @@ use super::{
 
 #[derive(Debug, Default, Clone)]
 pub struct Block {
-    pub dec: HashMap<String, Span<Hoistable>>,
+    pub dec: HashMap<Identifier, Hoistable>,
     pub stm: Vec<Statement>,
 }
 
@@ -42,7 +42,6 @@ pub enum Hoistable {
         public: bool,
     },
     Variable {
-        typ: Option<Type>,
         val: Expression,
         cte: bool,
         public: bool,
@@ -57,13 +56,13 @@ impl Parser {
     pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Option<Block> {
         if !global {
             self.expect(&['{'])?;
-            self.ensure_closed('}');
+            self.ensure_closed('}')?;
         }
 
         let mut dup = HashMap::new();
         let mut flag = true;
-        let mut dec: HashMap<String, Span<Hoistable>> = HashMap::new();
-        let stm_ref = unsafe { &mut *(&mut stm as *mut _) };
+        let mut dec: HashMap<Identifier, _> = HashMap::new();
+        let stm_ref = stm.bypass();
         let de = match self.de.back() {
             Some(n) => n - 1,
             _ => 0,
@@ -88,6 +87,17 @@ impl Parser {
                 let (k, mut v) = match tmp {
                     "fn" => self.fun()?,
                     "struct" => self.strukt()?,
+                    "let" | "cte" if global => match self.var(tmp == "cte")? {
+                        Statement::Variable { name, val, cte } => (
+                            name,
+                            Hoistable::Variable {
+                                val,
+                                cte,
+                                public: false,
+                            },
+                        ),
+                        _ => unreachable!(),
+                    },
                     // "use" => ,
                     // "extern" => self.ext(&mut ext),
                     "pub" => {
@@ -99,17 +109,17 @@ impl Parser {
 
                 if flag {
                     flag = false;
-                    match &mut v.data {
+                    match &mut v {
                         Hoistable::Function { public, .. }
                         | Hoistable::Struct { public, .. }
                         | Hoistable::Variable { public, .. } => *public = true,
                     }
                 }
 
-                if let Some(prev) = dec.get(&k) {
-                    dup.entry(k)
+                if let Some((prev, _)) = dec.get_key_value(&k) {
+                    dup.entry(k.data)
                         .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
-                        .push((v.rng, Point::Error, ""))
+                        .push((k.rng, Point::Error, ""))
                 } else {
                     dec.insert(k, v);
                 }
@@ -136,7 +146,7 @@ impl Parser {
                         self._next();
                     }
 
-                    if exp.is_empty() {
+                    if exp.data.is_empty() {
                         continue;
                     }
 

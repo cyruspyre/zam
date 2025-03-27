@@ -1,11 +1,16 @@
 pub mod generic;
+pub mod kind;
 mod r#trait;
+
+use kind::TypeKind;
+
+use crate::parser::{misc::ValidID, span::Span};
 
 use super::{expression::group::GroupValue, fields::FieldValue, Parser};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Type {
-    pub name: String,
+    pub kind: Span<TypeKind>,
     pub sub: Vec<Type>,
     pub ptr: usize,
     pub raw: bool,
@@ -19,10 +24,10 @@ impl FieldValue for Type {
 }
 
 impl GroupValue for Type {
-    fn group_value(src: &mut Parser) -> Option<Self> {
+    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
         match src.skip_whitespace() {
             ')' => None,
-            _ => Some(src.typ()?),
+            _ => Some(src.typ()),
         }
     }
 }
@@ -33,7 +38,7 @@ impl Parser {
         let mut tmp = true;
 
         loop {
-            let n = match self.next_if(&['*', '&']) {
+            let n = match self.next_char_if(&['*', '&']) {
                 '*' => 0,
                 '&' => 1,
                 _ => break,
@@ -52,19 +57,25 @@ impl Parser {
             self.err("cannot mix pointers and reference")?
         }
 
+        let mut fun = self.next_if(&["fn"]).ctx;
+
+        if fun && self.peek().is_id() {
+            self.idx -= 2;
+            fun = false;
+        }
+
         let tuple = self.skip_whitespace() == '(';
-        let raw = ptr[0] > 0;
-        let mut null = 0;
-        let (name, mut sub) = match tuple {
-            true => {
-                self.rng.fill(self.idx + 1);
-                (String::new(), self.group())
-            }
-            _ => (self.identifier(true)?, Vec::new()),
+        let name = if !fun && !tuple {
+            self.identifier(true)
+        } else {
+            None
         };
+        let raw = ptr[0] > 0;
+        let idx = self.rng[0];
+        let mut sub = Vec::new();
 
         if !tuple && self.might('<') {
-            self.ensure_closed('>');
+            self.ensure_closed('>')?;
 
             loop {
                 if self.might('>') {
@@ -84,6 +95,22 @@ impl Parser {
             self.de.pop_back();
         }
 
+        let data = if fun {
+            TypeKind::Fn {
+                arg: self.group()?,
+                ret: {
+                    self.expect(&["->"])?;
+                    Box::new(self.typ()?)
+                },
+            }
+        } else if tuple {
+            TypeKind::Tuple(self.group()?)
+        } else {
+            TypeKind::ID(name?.data)
+        };
+
+        let mut null = 0;
+
         while self.might('?') {
             null += 1
         }
@@ -93,7 +120,10 @@ impl Parser {
         }
 
         Some(Type {
-            name,
+            kind: Span {
+                rng: [idx, self.idx],
+                data,
+            },
             sub,
             ptr: ptr[!raw as usize],
             raw,

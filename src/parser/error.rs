@@ -16,18 +16,7 @@ macro_rules! err {
 
 impl Parser {
     pub fn err<'a, S: AsRef<str> + Display + From<&'a str>>(&mut self, msg: S) -> Option<!> {
-        self.log(
-            &mut [(
-                match self.rng == [0; 2] {
-                    true => [self.idx; 2],
-                    _ => self.rng,
-                },
-                Point::Error,
-                "".into(),
-            )],
-            Log::Error,
-            msg,
-        );
+        self.log(&mut [(self.rng, Point::Error, "")], Log::Error, msg);
 
         None
     }
@@ -60,20 +49,9 @@ impl Parser {
         pnt: &mut [[usize; 2]],
         msg: S,
     ) -> Option<!> {
-        for n in &self.de {
-            if let Ok(i) = pnt.binary_search_by_key(n, |rng| rng[0]) {
-                let n = n - self.data[..*n]
-                    .iter()
-                    .rev()
-                    .position(|c| !c.is_ascii_whitespace())
-                    .unwrap_or_default();
-                pnt[i][0] = n - 1;
-            }
-        }
-
         self.log(
             pnt.into_iter()
-                .map(|v| (*v, Point::Error, "".into()))
+                .map(|v| (*v, Point::Error, ""))
                 .collect::<Vec<_>>()
                 .as_slice(),
             Log::Error,

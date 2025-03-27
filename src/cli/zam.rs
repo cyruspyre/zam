@@ -1,7 +1,5 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use strsim::jaro;
-
 use crate::{cfg::Config, err, validator::Validator, zam::Zam};
 
 pub fn zam(mut path: PathBuf, cfg: Config) {

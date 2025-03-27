@@ -1,9 +1,9 @@
-use crate::parser::misc::{Span, ToSpan};
+use crate::parser::span::Identifier;
 
 use super::{Hoistable, Parser};
 
 impl Parser {
-    pub fn strukt(&mut self) -> Option<(String, Span<Hoistable>)> {
+    pub fn strukt(&mut self) -> Option<(Identifier, Hoistable)> {
         let name = self.identifier(true)?;
         let rng = self.rng;
         let de = self.expect_char(&['<', '{'])?;
@@ -23,8 +23,7 @@ impl Parser {
                 fields: self.fields('}')?,
                 rng,
                 public: false,
-            }
-            .span(rng),
+            },
         ))
     }
 }

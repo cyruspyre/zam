@@ -6,7 +6,9 @@ use std::{
 
 use colored::{Color, Colorize};
 
-use super::Parser;
+use crate::misc::Bypass;
+
+use super::{misc::Either, Parser};
 
 pub enum Log {
     Error,
@@ -22,16 +24,16 @@ pub enum Point {
 }
 
 impl Parser {
-    pub fn log<'a, S: Display + AsRef<str>>(
+    pub fn log<'a, L: Display + AsRef<str>, M: Display + AsRef<str>>(
         &mut self,
-        pnt: &[([usize; 2], Point, S)],
+        pnt: &[([usize; 2], Point, L)],
         typ: Log,
-        msg: S,
+        msg: M,
     ) {
         let last_line = self
             .line
             .binary_search(&pnt.last().unwrap().0[0])
-            .unwrap_err()
+            .either()
             .add(1)
             .to_string()
             .len();
@@ -74,7 +76,7 @@ impl Parser {
                 continue;
             };
 
-            let idx = self.line.binary_search(&rng[0]).map_or_else(|e| e, |v| v);
+            let idx = self.line.binary_search(&rng[0]).either();
             let mut start = match self.line.get(idx.wrapping_sub(1)) {
                 Some(v) => v + 1,
                 _ => 0,
@@ -87,7 +89,7 @@ impl Parser {
             let line = (idx + 1).to_string().black();
             let code: String = self.data[start..=end].into_iter().collect();
 
-            // skips a blank line
+            // // skips a blank line
             // if start > end {
             //     rng[0] += 1;
             //     continue;
@@ -127,7 +129,6 @@ impl Parser {
             .unwrap();
 
             let mut labels = Vec::with_capacity(pnt.len());
-
             loop {
                 io.write(
                     format!(
@@ -141,7 +142,7 @@ impl Parser {
                 )
                 .unwrap();
 
-                match iter.next_if(|v| v.0[1] < end) {
+                match iter.next_if(|v| v.0[0] == v.0[1] && v.0[1] < end) {
                     Some((ref rng_, _, label_)) => {
                         if !label.as_ref().is_empty() {
                             labels.push((
@@ -167,7 +168,7 @@ impl Parser {
                 };
             }
 
-            let tmp = unsafe { &mut *(&mut labels as *mut Vec<_>) };
+            let tmp = labels.bypass();
 
             while labels.len() != 0 {
                 io.write(" ".repeat(border.len()).as_bytes()).unwrap();

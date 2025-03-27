@@ -31,7 +31,7 @@ pub fn init(mut path: PathBuf, cfg: PathBuf, cmd: ArgMatches) {
     if cmd.get_flag("bin") {
         typ.push("bin");
         src += &format!(
-            "{}fn main() -> _ {{\n    println(\"Hello World!{}\")\n}}",
+            "{}fn main() {{\n    println(\"Hello World!{}\")\n}}",
             match lib {
                 true => "\n\n",
                 _ => "",

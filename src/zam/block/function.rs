@@ -1,14 +1,13 @@
 use crate::{
-    parser::misc::{Span, ToSpan},
-    zam::typ::Type,
+    parser::span::Identifier,
+    zam::typ::{Type, kind::TypeKind},
 };
 
 use super::{Hoistable, Parser};
 
 impl Parser {
-    pub fn fun(&mut self) -> Option<(String, Span<Hoistable>)> {
+    pub fn fun(&mut self) -> Option<(Identifier, Hoistable)> {
         let name = self.identifier(true)?;
-        let rng = self.rng;
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
             '<' => self.gen()?,
@@ -22,7 +21,7 @@ impl Parser {
         let arg = self.fields(')')?;
         let ret = match self.skip_whitespace() {
             '{' => Type {
-                name: "()".into(),
+                kind: self.span(TypeKind::ID("()".into())),
                 sub: Vec::new(),
                 ptr: 0,
                 raw: false,
@@ -42,8 +41,7 @@ impl Parser {
                 ret,
                 block: Some(self.block(false)?),
                 public: false,
-            }
-            .span(rng),
+            },
         ))
     }
 }

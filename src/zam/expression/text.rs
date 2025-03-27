@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::parser::span::Span;
+
 use super::{
     super::{statement::Statement, Block},
     Expression, Parser, Term,
@@ -13,6 +15,10 @@ enum WTF {
 
 impl Parser {
     pub fn text(&mut self) -> Option<Term> {
+        macro_rules! arr {
+            ($($x:expr),+ $(,)?) => {[$($x),+].map(|v| self.span(v)).to_vec()};
+        }
+
         let [typ, de] = match self.next() {
             c if c.is_ascii_alphabetic() => [c, self.next()],
             c => [' ', c],
@@ -63,47 +69,48 @@ impl Parser {
         if de == '"' {
             if buf.len() == 1 {
                 return match buf.pop().unwrap() {
-                    WTF::Exp(v) => Some(Term::Group(vec![
+                    WTF::Exp(v) => Some(Term::Group(Expression::from(arr![
                         flatten(v),
                         Term::Access(false),
-                        Term::Identifier("to_string".into()),
+                        Term::Identifier(self.span("to_string".into())),
                         Term::Tuple(Vec::new()),
-                    ])),
+                    ]))),
                     WTF::Buf(data) => Some(Term::String { data, byte: false }),
                 };
             }
 
             let mut stm = vec![Statement::Variable {
-                name: "0".into(),
-                typ: None,
-                val: vec![
-                    Term::Identifier("String".into()),
+                name: self.span("0".into()),
+                val: Expression::from(arr![
+                    Term::Identifier(self.span("String".into())),
                     Term::Access(true),
-                    Term::Identifier("with_capacity".into()),
-                    Term::Tuple(vec![vec![Term::Integer {
+                    Term::Identifier(self.span("with_capacity".into())),
+                    Term::Tuple(vec![Expression::from(arr![Term::Integer {
                         val: size,
                         bit: 64,
                         neg: false,
-                        rng: self.rng,
-                        sign: false,
-                    }]]),
-                ],
+                        sign: Some(false),
+                    }])]),
+                ]),
                 cte: false,
             }];
 
             for v in buf {
-                let mut exp = vec![Term::Identifier("0".into()), Term::AddAssign];
-                let tmp: &[Term] = match v {
-                    WTF::Buf(data) => &[Term::String { data, byte: false }],
-                    WTF::Exp(v) => &[
+                let mut exp = Expression::from(arr![
+                    Term::Identifier(self.span("0".into())),
+                    Term::AddAssign
+                ]);
+                let tmp: &[Span<Term>] = match v {
+                    WTF::Buf(data) => &self.lol([Term::String { data, byte: false }]),
+                    WTF::Exp(v) => &self.lol([
                         flatten(v),
                         Term::Access(false),
-                        Term::Identifier("to_string".into()),
+                        Term::Identifier(self.span("to_string".into())),
                         Term::Tuple(Vec::new()),
-                    ],
+                    ]),
                 };
 
-                exp.extend_from_slice(tmp);
+                exp.data.extend_from_slice(tmp);
                 stm.push(Statement::Expression(exp));
             }
 
@@ -127,8 +134,7 @@ impl Parser {
                             val: buf.as_bytes()[0].into(),
                             bit: 8,
                             neg: false,
-                            rng: self.rng,
-                            sign: false,
+                            sign: Some(false),
                         }),
                         _ => Some(Term::Char(buf.chars().next().unwrap())),
                     };
@@ -140,11 +146,17 @@ impl Parser {
 
         self.err(msg)?
     }
+
+    fn lol<const N: usize>(&self, v: [Term; N]) -> [Span<Term>; N] {
+        v.map(|v| self.span(v))
+    }
 }
 
 fn flatten(mut v: Expression) -> Term {
-    match v.len() == 1 {
-        true => v.pop().unwrap(),
+    let exp = &mut v.data;
+
+    match exp.len() == 1 {
+        true => exp.pop().unwrap().data,
         _ => Term::Group(v),
     }
 }

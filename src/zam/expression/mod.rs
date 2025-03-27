@@ -3,12 +3,32 @@ mod number;
 pub mod term;
 mod text;
 
+use std::fmt::Display;
+
 use group::GroupValue;
 use term::Term;
 
-use super::{fields::FieldValue, Parser};
+use crate::{
+    misc::Bypass,
+    parser::span::{Span, ToSpan},
+};
 
-pub type Expression = Vec<Term>;
+use super::{fields::FieldValue, typ::Type, Parser};
+
+#[derive(Debug, Clone, Default)]
+pub struct Expression {
+    pub data: Vec<Span<Term>>,
+    pub typ: Type,
+}
+
+impl From<Vec<Span<Term>>> for Expression {
+    fn from(value: Vec<Span<Term>>) -> Self {
+        Self {
+            data: value,
+            typ: Type::default(),
+        }
+    }
+}
 
 impl FieldValue for Expression {
     fn field_value(src: &mut Parser) -> Option<Self> {
@@ -17,9 +37,11 @@ impl FieldValue for Expression {
 }
 
 impl GroupValue for Expression {
-    fn group_value(src: &mut Parser) -> Option<Self> {
-        let (exp, used) = src.exp(',', false)?;
-        let empty = exp.is_empty();
+    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
+        let Some((exp, used)) = src.exp(',', false) else {
+            return Some(None);
+        };
+        let empty = exp.data.is_empty();
 
         if used {
             src.idx += 1
@@ -29,34 +51,46 @@ impl GroupValue for Expression {
             return None;
         }
 
-        Some(exp)
+        Some(Some(exp))
     }
 }
 
-// manually sort the elements as per ascii ascending order
-const OP: [(char, Term, &[(char, Term)]); 8] = [
-    ('!', Term::Neg, &[('=', Term::Nq)]),
-    ('+', Term::Add, &[('=', Term::AddAssign)]),
-    ('-', Term::Sub, &[]),
-    ('.', Term::Access(false), &[('.', Term::Rng)]),
-    ('/', Term::Div, &[]),
-    ('<', Term::Gt, &[('<', Term::Shl), ('=', Term::Le)]),
-    ('>', Term::Lt, &[('<', Term::Shr), ('=', Term::Ge)]),
-    ('=', Term::Assign, &[('=', Term::Eq)]),
-];
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for v in &self.data {
+            write!(f, "{v} ")?
+        }
 
-pub trait PrettyExp {
-    fn to_string(&self) -> String;
-}
-
-impl PrettyExp for Vec<Term> {
-    fn to_string(&self) -> String {
-        self.into_iter()
-            .map(|v| v.to_string())
-            .collect::<Vec<_>>()
-            .join(" ")
+        Ok(())
     }
 }
+
+const OP: [(char, Term, &[(char, Term)]); 8] = {
+    let mut i = 1;
+    let mut ops: [(char, Term, &[(char, Term)]); 8] = [
+        ('!', Term::Neg, &[('=', Term::Nq)]),
+        ('+', Term::Add, &[('=', Term::AddAssign)]),
+        ('-', Term::Sub, &[]),
+        ('.', Term::Access(false), &[('.', Term::Rng)]),
+        ('/', Term::Div, &[]),
+        ('<', Term::Gt, &[('<', Term::Shl), ('=', Term::Le)]),
+        ('>', Term::Lt, &[('<', Term::Shr), ('=', Term::Ge)]),
+        ('=', Term::Assign, &[('=', Term::Eq)]),
+    ];
+
+    while i < ops.len() {
+        let mut j = i;
+
+        while j > 0 && ops[j - 1].0 > ops[j].0 {
+            ops.swap(j - 1, j);
+            j -= 1;
+        }
+
+        i += 1;
+    }
+
+    ops
+};
 
 impl Parser {
     pub fn exp(&mut self, de: char, required: bool) -> Option<(Expression, bool)> {
@@ -79,19 +113,23 @@ impl Parser {
                 continue;
             }
 
+            let start = self.idx + 1;
             let tmp = if c == '{' {
                 match exp.last() {
-                    Some(Term::Identifier(_)) => {
+                    Some(Span {
+                        data: Term::Identifier(_),
+                        ..
+                    }) => {
                         self.idx += 1;
                         Term::Struct(self.fields('}')?)
                     }
                     _ => Term::Block(self.block(false)?),
                 }
             } else if c == '(' {
-                let mut tmp = self.group();
+                let mut tmp = self.group()?;
 
                 match tmp.len() {
-                    0 => Term::Void,
+                    0 => Term::None,
                     1 => Term::Group(tmp.pop().unwrap()),
                     _ => Term::Tuple(tmp),
                 }
@@ -128,7 +166,7 @@ impl Parser {
                 }
             };
 
-            exp.push(tmp);
+            exp.push(tmp.span([start, self.idx]));
         }
 
         if required && exp.is_empty() {
@@ -137,7 +175,7 @@ impl Parser {
 
         let mut order = [2, 0];
         let mut index = [0; 3];
-        let exp_mut: &mut Vec<Term> = unsafe { &mut *(&mut exp as *mut _) };
+        let exp_mut = exp.bypass();
         let mut iter = exp.iter().enumerate();
 
         loop {
@@ -145,7 +183,7 @@ impl Parser {
 
             if let Some((n, v)) = one {
                 index[2] = n;
-                let tmp = match v {
+                let tmp = match **v {
                     Term::Div => 2,
                     Term::Add | Term::Sub => 1,
                     _ => continue,
@@ -188,6 +226,12 @@ impl Parser {
             }
         }
 
-        Some((exp, end))
+        Some((
+            Expression {
+                data: exp,
+                typ: Type::default(),
+            },
+            end,
+        ))
     }
 }

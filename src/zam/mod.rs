@@ -1,16 +1,18 @@
 use std::{env::current_dir, path::PathBuf};
 
 use block::Block;
+use typ::{kind::TypeKind, Type};
 
 use crate::parser::Parser;
 
 pub mod block;
-mod expression;
+pub mod expression;
 mod external;
 mod fields;
 mod statement;
-mod typ;
+pub mod typ;
 
+#[derive(Debug)]
 pub struct Zam {
     pub parser: Parser,
     pub block: Block,

@@ -1,6 +1,8 @@
+use crate::parser::span::Identifier;
+
 use super::{r#trait::Trait, Parser};
 
-pub type Generic = Vec<(String, Vec<Trait>)>;
+pub type Generic = Vec<(Identifier, Vec<Trait>)>;
 
 impl Parser {
     pub fn gen(&mut self) -> Option<Generic> {

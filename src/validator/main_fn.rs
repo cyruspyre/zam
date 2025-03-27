@@ -14,20 +14,20 @@ impl Validator {
             .block
             .dec
             .iter()
-            .map(|(k, v)| (jaro("main", k), v))
+            .map(|(k, v)| (jaro("main", k), k.rng, v))
             .max_by(|a, b| a.0.total_cmp(&b.0))
         {
-            Some((sim, v)) => (
-                v.rng,
+            Some((sim, rng,  data)) => (
+                rng,
                 Point::Info,
-                match v.data {
+                match data {
                     Hoistable::Function { .. } => match sim {
                         1.0 => return Some(()),
                         _ => "did you mean `main`?",
                     },
                     _ => match sim {
                         1.0 => "identifier `main` exists but isn't a function",
-                        _ => "similar identifier to `main` exists",
+                        _ => "similar identifier as `main` exists",
                     },
                 },
             ),

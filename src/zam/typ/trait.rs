@@ -1,8 +1,10 @@
+use crate::parser::span::Identifier;
+
 use super::Parser;
 
 #[derive(Debug, Clone)]
 pub struct Trait {
-    name: String,
+    name: Identifier,
     sub: Vec<Trait>,
 }
 

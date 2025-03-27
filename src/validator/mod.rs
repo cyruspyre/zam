@@ -1,9 +1,12 @@
+mod identifier;
 mod main_fn;
+mod typ;
 
 use std::collections::HashMap;
 
 use crate::{cfg::Config, err, zam::Zam};
 
+#[derive(Debug)]
 pub struct Validator {
     cfg: Config,
     srcs: HashMap<String, Zam>,
@@ -16,6 +19,7 @@ impl Validator {
 
     pub fn validate(mut self, mut err: usize) {
         self.main_fn();
+        self.identifier();
 
         for v in self.srcs.values() {
             err += v.parser.err
@@ -31,5 +35,17 @@ impl Validator {
                 }
             )
         }
+    }
+
+    pub fn lookup_dec(&self, id: &String) -> Vec<&String> {
+        let mut tmp = Vec::new();
+
+        for (path, src) in &self.srcs {
+            if src.block.dec.contains_key(id) {
+                tmp.push(path);
+            }
+        }
+
+        tmp
     }
 }

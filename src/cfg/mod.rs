@@ -1,3 +1,5 @@
+mod misc;
+
 use std::{path::PathBuf, process::exit};
 
 use serde::{de::Visitor, Deserialize, Deserializer};
@@ -9,6 +11,8 @@ use crate::parser::{misc::read_file, Parser};
 pub struct Config {
     #[serde(rename = "package")]
     pub pkg: Package,
+    #[serde(skip, default = "misc::size")]
+    pub bit: u32,
 }
 
 impl Config {

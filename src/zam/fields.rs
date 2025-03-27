@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 
+use crate::parser::span::Identifier;
+
 use super::Parser;
 
 #[derive(Debug, Clone)]
 pub struct Field<T> {
-    pub name: String,
+    pub name: Identifier,
     pub data: T,
     pub rng: [[usize; 2]; 2],
 }
 
 impl Parser {
     pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Vec<Field<T>>> {
-        self.ensure_closed(de);
+        self.ensure_closed(de)?;
         let mut fields = Vec::new();
 
         loop {
@@ -52,7 +54,6 @@ impl Parser {
             if self.might(de) {
                 break;
             }
-            println!("{}", self.data[self.idx]);
 
             self.expect_char(&[',']);
         }
