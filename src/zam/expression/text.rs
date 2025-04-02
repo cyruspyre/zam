@@ -89,7 +89,7 @@ impl Parser {
                         val: size,
                         bit: 64,
                         neg: false,
-                        sign: Some(false),
+                        sign: false,
                     }])]),
                 ]),
                 cte: false,
@@ -134,7 +134,7 @@ impl Parser {
                             val: buf.as_bytes()[0].into(),
                             bit: 8,
                             neg: false,
-                            sign: Some(false),
+                            sign: false,
                         }),
                         _ => Some(Term::Char(buf.chars().next().unwrap())),
                     };

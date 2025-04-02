@@ -5,8 +5,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use clang::TypeKind;
-
 use super::Parser;
 
 pub type Identifier = Span<String>;

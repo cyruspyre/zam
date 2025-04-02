@@ -1,8 +1,12 @@
 pub mod generic;
 pub mod kind;
+mod misc;
 mod r#trait;
 
+use std::fmt::Display;
+
 use kind::TypeKind;
+use misc::join;
 
 use crate::parser::{misc::ValidID, span::Span};
 
@@ -15,6 +19,23 @@ pub struct Type {
     pub ptr: usize,
     pub raw: bool,
     pub null: usize,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{}{}",
+            if self.raw { "*" } else { "&" }.repeat(self.ptr),
+            self.kind,
+            if self.sub.is_empty() {
+                "".into()
+            } else {
+                format!("<{}>", join(&self.sub))
+            },
+            "?".repeat(self.null)
+        )
+    }
 }
 
 impl FieldValue for Type {
@@ -34,8 +55,8 @@ impl GroupValue for Type {
 
 impl Parser {
     pub fn typ(&mut self) -> Option<Type> {
+        let mut rng = [0; 2];
         let mut ptr = [0; 2];
-        let mut tmp = true;
 
         loop {
             let n = match self.next_char_if(&['*', '&']) {
@@ -45,19 +66,19 @@ impl Parser {
             };
 
             ptr[n] += 1;
-            self.rng[1] = self.idx;
 
-            if tmp {
-                self.rng[0] = self.idx;
-                tmp = false;
+            if rng[0] == 0 {
+                rng.fill(self.idx);
+            } else {
+                rng[1] = self.idx;
             }
         }
 
         if ptr[0] > 0 && ptr[1] > 0 {
-            self.err("cannot mix pointers and reference")?
+            self.err_rng(rng, "cannot mix pointers and reference")?
         }
 
-        let mut fun = self.next_if(&["fn"]).ctx;
+        let mut fun = self.might("fn");
 
         if fun && self.peek().is_id() {
             self.idx -= 2;
@@ -71,8 +92,13 @@ impl Parser {
             None
         };
         let raw = ptr[0] > 0;
-        let idx = self.rng[0];
         let mut sub = Vec::new();
+
+        if rng[0] == 0 {
+            rng[0] = self.rng[0]
+        }
+
+        rng[1] = self.rng[1];
 
         if !tuple && self.might('<') {
             self.ensure_closed('>')?;
@@ -89,7 +115,7 @@ impl Parser {
                     break;
                 }
 
-                self.expect_char(&[',']);
+                self.expect_char(&[','])?;
             }
 
             self.de.pop_back();
@@ -115,15 +141,15 @@ impl Parser {
             null += 1
         }
 
+        rng[1] = self.idx;
+        self.rng = rng;
+
         if raw && null != 0 {
-            self.err("cannot use nullable indicator in pointers");
+            self.err("cannot use nullable indicator with raw pointers")?
         }
 
         Some(Type {
-            kind: Span {
-                rng: [idx, self.idx],
-                data,
-            },
+            kind: Span { rng, data },
             sub,
             ptr: ptr[!raw as usize],
             raw,

@@ -31,7 +31,7 @@ impl Parser {
                 self.err_op(false, &["<identifier>"])?
             }
 
-            self.expect_char(&[':']);
+            self.expect_char(&[':'])?;
             self.skip_whitespace();
             let two = self.idx + 1;
             let data = T::field_value(self)?;
@@ -55,7 +55,7 @@ impl Parser {
                 break;
             }
 
-            self.expect_char(&[',']);
+            self.expect_char(&[','])?;
         }
 
         self.rng.fill(self.idx);

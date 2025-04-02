@@ -1,6 +1,10 @@
 use std::fmt::Display;
 
-use crate::parser::span::Identifier;
+use crate::{
+    cfg::Config,
+    parser::span::{Identifier, Span},
+    zam::typ::{kind::TypeKind, Type},
+};
 
 use super::{
     super::{fields::Field, Block},
@@ -13,7 +17,7 @@ pub enum Term {
     Integer {
         val: u64,
         /// ## Special Cases
-        /// `0` -> Infer bitness from preceder. If it's the first term, it should be `32`
+        /// `0` -> Infer signedness && bitness from preceder. If it's the first term, it should be `i32`
         ///
         /// `u32::MAX` -> Target's native pointer size
         bit: u32,
@@ -23,7 +27,7 @@ pub enum Term {
         /// `Some(true)` -> Signed
         ///
         /// `Some(false)` -> Unsigned
-        sign: Option<bool>,
+        sign: bool,
     },
     Float {
         val: f64,
@@ -38,6 +42,7 @@ pub enum Term {
     Group(Expression),
     Tuple(Vec<Expression>),
     Struct(Vec<Field<Expression>>),
+    Generic(Vec<Span<Type>>),
     Identifier(Identifier),
     Access(bool),
     Rng,
@@ -53,7 +58,7 @@ pub enum Term {
     Mod,
     Shl,
     Shr,
-    As(Identifier),
+    As(Type),
     Eq,
     Nq,
     Lt,
@@ -84,6 +89,27 @@ impl Term {
         }
     }
 
+    pub fn as_type(&self, from: &Type, cfg: &Config) {
+        let tmp = match self {
+            Term::Integer { bit, sign, .. } => match bit {
+                0 => match from.kind.data {
+                    TypeKind::Integer { .. } => from.kind.data.clone(),
+                    _ => TypeKind::Integer {
+                        bit: 32,
+                        sign: true,
+                    },
+                },
+                _ => TypeKind::Integer {
+                    bit: if *bit == u32::MAX { cfg.bit } else { *bit },
+                    sign: *sign,
+                },
+            },
+            _ => todo!(),
+        };
+
+        println!("{tmp:?}");
+    }
+
     pub fn check_rng(&self, src: &mut Parser) {
         if let Term::Integer {
             val,
@@ -93,12 +119,11 @@ impl Term {
             ..
         } = self
         {
-            let sign = sign.unwrap();
             let max = 2u64
-                .wrapping_pow(bit - if sign { 1 } else { 0 })
+                .wrapping_pow(bit - if *sign { 1 } else { 0 })
                 .wrapping_sub(1);
-            let min = if sign { u64::MAX - max } else { 0 };
-            let err = !if sign {
+            let min = if *sign { u64::MAX - max } else { 0 };
+            let err = !if *sign {
                 *val >= min && *neg || *val <= max && !neg
             } else {
                 *val >= min && *val <= max && !neg
@@ -107,7 +132,7 @@ impl Term {
             if err {
                 src.err(format!(
                     "`{}{bit}` has a range of `{}..={max}`",
-                    if sign { 'i' } else { 'u' },
+                    if *sign { 'i' } else { 'u' },
                     min as i64
                 ));
             }
@@ -118,7 +143,7 @@ impl Term {
 impl Display for Term {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let out = match self {
-            Term::Integer { val, bit, sign, .. } => match sign.unwrap() {
+            Term::Integer { val, bit, sign, .. } => match sign {
                 true => {
                     let val = *val as i64;
                     let tmp = format!("{val}i{bit}");
@@ -131,7 +156,7 @@ impl Display for Term {
                 _ => format!("{val}u{bit}"),
             },
             Term::Group(v) => format!("({})", v.to_string()),
-            Term::As(v) => format!("as {}", **v),
+            Term::As(v) => format!("as {v}"),
             Term::Identifier(v) => v.data.clone(),
             _ => match self {
                 Term::Access(v) => match v {

@@ -1,4 +1,6 @@
-use super::Type;
+use std::fmt::Display;
+
+use super::{misc::join, Type};
 
 #[derive(Debug, Clone, Default)]
 pub enum TypeKind {
@@ -15,6 +17,21 @@ pub enum TypeKind {
         ret: Box<Type>,
     },
     Tuple(Vec<Type>),
+}
+
+impl Display for TypeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let data = match self {
+            TypeKind::Integer { bit, sign } => format!("{}{bit}", if *sign { 'i' } else { 'u' }),
+            TypeKind::Float(v) => format!("f{v}"),
+            TypeKind::Fn { arg, ret } => format!("fn({}) -> {ret}", join(arg)),
+            TypeKind::Tuple(items) => join(items),
+            TypeKind::ID(v) => v.into(),
+            TypeKind::Unknown => "UNKNOWN".into(),
+        };
+
+        f.write_str(&data)
+    }
 }
 
 impl TypeKind {

@@ -13,7 +13,7 @@ impl Parser {
         let mut val = if de == '=' || de != ';' && self.expect_char(&['=', ';'])? == '=' {
             let tmp = self.exp(';', true)?.0;
 
-            self.expect_char(&[';']);
+            self.expect_char(&[';'])?;
 
             tmp
         } else {

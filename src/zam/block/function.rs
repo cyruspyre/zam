@@ -10,12 +10,12 @@ impl Parser {
         let name = self.identifier(true)?;
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
-            '<' => self.gen()?,
+            '<' => self.dec_gen()?,
             _ => Vec::new(),
         };
 
         if de == '<' {
-            self.expect_char(&['(']);
+            self.expect_char(&['('])?;
         }
 
         let arg = self.fields(')')?;

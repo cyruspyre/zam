@@ -4,6 +4,7 @@ pub mod misc;
 pub mod span;
 
 use std::{
+    any::TypeId,
     collections::VecDeque,
     fmt::{Debug, Display},
     path::PathBuf,
@@ -11,7 +12,7 @@ use std::{
 
 use log::{Log, Point};
 use misc::{read_file, Context, Either, ValidID};
-use span::{Identifier, Span, ToSpan};
+use span::{Identifier, ToSpan};
 
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -21,6 +22,8 @@ pub struct Parser {
     pub rng: [usize; 2],
     pub idx: usize,
     pub err: usize,
+    /// Read-Only mode without throwing error
+    pub ro: bool,
     pub de: VecDeque<usize>,
 }
 
@@ -35,6 +38,7 @@ impl Parser {
             err: 0,
             rng: [0; 2],
             idx: usize::MAX,
+            ro: false,
             de: VecDeque::new(),
         })
     }
@@ -102,8 +106,7 @@ impl Parser {
     }
 
     pub fn next_char_if(&mut self, op: &[char]) -> char {
-        self.next_if(op);
-        self.data[self.idx]
+        self.next_if(op).data.chars().next().unwrap_or_default()
     }
 
     pub fn _peek(&mut self) -> Option<char> {
@@ -173,7 +176,7 @@ impl Parser {
         buf
     }
 
-    pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
+    fn _identifier(&mut self, required: bool) -> Option<Identifier> {
         let tmp = self.word();
         let rng = self.rng;
 
@@ -213,6 +216,17 @@ impl Parser {
         Some(tmp.span(rng))
     }
 
+    pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
+        let idx = self.idx;
+        let tmp = self._identifier(required);
+
+        if self.ro && tmp.is_none() {
+            self.idx = idx
+        }
+
+        tmp
+    }
+
     pub fn skip_whitespace(&mut self) -> char {
         while let Some(c) = self._peek() {
             if c.is_ascii_whitespace() {
@@ -227,7 +241,7 @@ impl Parser {
     }
 
     pub fn enclosed(&mut self, de: char) -> Option<String> {
-        self.expect_char(&[de]);
+        self.expect_char(&[de])?;
         self.rng = [self.idx; 2];
 
         let mut buf = String::new();
@@ -343,26 +357,32 @@ impl Parser {
         buf
     }
 
-    pub fn might(&mut self, t: char) -> bool {
-        let tmp = self.next_char_if(&[t]) == t;
+    pub fn might<T: Display>(&mut self, t: T) -> bool {
+        let rng = self.rng;
+        let tmp = self.next_if(&[t]).ctx;
 
-        if tmp {
-            self.rng.fill(self.idx)
+        if !tmp {
+            self.rng = rng
         }
 
         tmp
     }
 
     #[must_use]
-    pub fn expect<T: Display + Debug>(&mut self, op: &[T]) -> Option<String> {
+    pub fn expect<T: Display + 'static>(&mut self, op: &[T]) -> Option<String> {
         let rng = self.rng;
         let tmp = self.next_if(op);
 
         if !tmp.ctx {
+            let idx = self.rng[0];
             let multiline = self
                 .line
                 .get(self.line.binary_search(&rng[0]).either())
-                .is_some_and(|v| self.rng[0] > *v);
+                .is_some_and(|v| idx > *v);
+
+            if TypeId::of::<T>() == TypeId::of::<char>() {
+                self.rng.fill(idx)
+            }
 
             if multiline {
                 self.rng = rng
@@ -374,6 +394,7 @@ impl Parser {
         Some(tmp.data)
     }
 
+    #[must_use]
     pub fn expect_char(&mut self, op: &[char]) -> Option<char> {
         self.expect(op)?;
         Some(self.data[self.idx])

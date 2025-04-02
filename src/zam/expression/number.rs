@@ -9,13 +9,11 @@ impl Parser {
         let mut dot = false;
         let neg = self.might('-');
 
-        if neg {
-            if !self.skip_whitespace().is_ascii_digit() {
-                return Some(Term::Sub);
-            }
+        if neg && !self.skip_whitespace().is_ascii_digit() {
+            return Some(Term::Sub);
         }
 
-        self.rng.fill(self.idx + !neg as usize);
+        self.rng.fill(self.idx);
 
         let rad = if self.might('0') {
             match self.next() {
@@ -25,6 +23,7 @@ impl Parser {
                 _ => {
                     buf[0].push('0');
                     self.idx -= 1;
+                    self.rng[0] -= neg as usize;
                     10
                 }
             }
@@ -88,6 +87,10 @@ impl Parser {
             v => 'a: {
                 let tmp = v.parse().unwrap_or_default();
 
+                if neg && suf == 'u' {
+                    self.err("unsigned integer cannot be negative")?
+                }
+
                 self.err(format!(
                     "invalid suffix. expected {suf}{{{}}}",
                     match suf {
@@ -119,13 +122,12 @@ impl Parser {
                     _ => break 'tmp,
                 };
 
+                if neg {
+                    val = val.wrapping_neg()
+                }
+
                 return Some(Term::Integer {
-                    sign: if neg {
-                        val = val.wrapping_neg();
-                        Some(true)
-                    } else {
-                        None
-                    },
+                    sign: suf == 'i',
                     val,
                     bit,
                     neg,

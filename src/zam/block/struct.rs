@@ -8,12 +8,12 @@ impl Parser {
         let rng = self.rng;
         let de = self.expect_char(&['<', '{'])?;
         let gen = match de {
-            '<' => self.gen()?,
+            '<' => self.dec_gen()?,
             _ => Vec::new(),
         };
 
         if de == '<' {
-            self.expect_char(&['{']);
+            self.expect_char(&['{'])?;
         }
 
         Some((

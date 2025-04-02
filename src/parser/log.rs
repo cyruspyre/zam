@@ -10,6 +10,7 @@ use crate::misc::Bypass;
 
 use super::{misc::Either, Parser};
 
+#[derive(Debug, PartialEq)]
 pub enum Log {
     Error,
     Warning,
@@ -30,6 +31,10 @@ impl Parser {
         typ: Log,
         msg: M,
     ) {
+        if self.ro && Log::Error == typ {
+            return;
+        }
+
         let last_line = self
             .line
             .binary_search(&pnt.last().unwrap().0[0])
@@ -76,15 +81,25 @@ impl Parser {
                 continue;
             };
 
+            if match self.line.last() {
+                Some(n) => *n,
+                _ => 0,
+            } < rng[1]
+            {
+                let tmp = match self.data[rng[1]..].iter().position(|c| *c == '\n') {
+                    Some(n) => rng[1] + n,
+                    _ => self.data.len(),
+                };
+
+                self.line.push(tmp);
+            }
+
             let idx = self.line.binary_search(&rng[0]).either();
             let mut start = match self.line.get(idx.wrapping_sub(1)) {
                 Some(v) => v + 1,
                 _ => 0,
             };
-            let end = match self.line.get(idx) {
-                Some(v) => *v,
-                _ => self.data.len(),
-            } - 1;
+            let end = self.line.get(idx).unwrap() - 1;
             let eof = (rng[0] <= rng[1]) as usize;
             let line = (idx + 1).to_string().black();
             let code: String = self.data[start..=end].into_iter().collect();

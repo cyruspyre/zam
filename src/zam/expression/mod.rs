@@ -10,7 +10,10 @@ use term::Term;
 
 use crate::{
     misc::Bypass,
-    parser::span::{Span, ToSpan},
+    parser::{
+        misc::ValidID,
+        span::{Span, ToSpan},
+    },
 };
 
 use super::{fields::FieldValue, typ::Type, Parser};
@@ -94,7 +97,7 @@ const OP: [(char, Term, &[(char, Term)]); 8] = {
 
 impl Parser {
     pub fn exp(&mut self, de: char, required: bool) -> Option<(Expression, bool)> {
-        let mut exp = Vec::new();
+        let mut exp: Vec<Span<_>> = Vec::new();
         let mut end = false;
         let last = match self.de.back() {
             Some(n) => n - 1,
@@ -114,7 +117,16 @@ impl Parser {
             }
 
             let start = self.idx + 1;
-            let tmp = if c == '{' {
+            let tmp = if let Some(v) = self.stm_gen()? {
+                if match exp.last() {
+                    Some(v) => !matches!(v.data, Term::Identifier(_)),
+                    _ => true,
+                } {
+                    self.err("expected identifier before generic parameter")?
+                }
+
+                v
+            } else if c == '{' {
                 match exp.last() {
                     Some(Span {
                         data: Term::Identifier(_),
@@ -127,7 +139,6 @@ impl Parser {
                 }
             } else if c == '(' {
                 let mut tmp = self.group()?;
-
                 match tmp.len() {
                     0 => Term::None,
                     1 => Term::Group(tmp.pop().unwrap()),
@@ -137,14 +148,14 @@ impl Parser {
                 self.num()?
             } else if c == 'a' && self.peek_more() == 's' {
                 self.idx += 2;
-                Term::As(self.identifier(true)?)
+                Term::As(self.typ()?)
             } else if match c {
                 'b' | 'r' if matches!(self.peek_more(), '\'' | '"') => true,
                 '\'' | '"' => true,
                 _ => false,
             } {
                 self.text()?
-            } else if c == '_' || c.is_ascii_alphabetic() {
+            } else if c.is_id() {
                 Term::Identifier(self.identifier(true)?)
             } else {
                 self._next();
@@ -161,7 +172,7 @@ impl Parser {
                         break 'one v.1.clone();
                     }
 
-                    self.rng.fill(0);
+                    self.rng.fill(self.idx);
                     self.err_op(false, &[de.to_string().as_str(), "<operator>"])?
                 }
             };

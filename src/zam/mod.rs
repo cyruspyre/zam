@@ -1,7 +1,6 @@
 use std::{env::current_dir, path::PathBuf};
 
 use block::Block;
-use typ::{kind::TypeKind, Type};
 
 use crate::parser::Parser;
 

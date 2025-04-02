@@ -17,7 +17,7 @@ impl Validator {
             for (id, v) in dec {
                 let Some((rng, msg)) = (match v {
                     Hoistable::Variable { val: exp, .. } => {
-                        let kind = &mut exp.typ.kind;
+                        let kind = exp.typ.kind.bypass();
                         let rng = kind.rng;
                         let label = kind.bypass().try_as_number(self.cfg.bit);
 
@@ -65,6 +65,11 @@ impl Validator {
                             pnt.push((rng, Point::Error, label));
                             src.parser.log(&pnt, Log::Error, msg);
                         }
+
+                        //exp.data[0].as_type(&exp.typ, &self.cfg);
+                        // dbg!(&exp.data);
+
+                        println!("{kind:?}");
 
                         self.infer_typ(exp)
                     }
