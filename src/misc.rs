@@ -4,6 +4,7 @@ pub trait Bypass {
     ///
     /// # Warning
     /// The caller must ensure it's okay to have multiple mutable references otherwise it's UB.
+    #[inline]
     fn bypass<'a, 'b>(&'a mut self) -> &'b mut Self {
         unsafe { &mut *(self as *mut _) }
     }

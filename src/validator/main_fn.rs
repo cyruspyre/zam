@@ -17,7 +17,7 @@ impl Validator {
             .map(|(k, v)| (jaro("main", k), k.rng, v))
             .max_by(|a, b| a.0.total_cmp(&b.0))
         {
-            Some((sim, rng,  data)) => (
+            Some((sim, rng, data)) if sim > 0.8 => (
                 rng,
                 Point::Info,
                 match data {
@@ -34,7 +34,8 @@ impl Validator {
             _ => ([src.parser.data.len(), 0], Point::Error, ""),
         };
 
-        src.parser.log(&[v], Log::Error, "expected `main` function");
+        src.parser
+            .log(&[v], Log::Error, "expected `main` function", "");
 
         None
     }

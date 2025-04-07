@@ -56,7 +56,7 @@ impl Parser {
         let mut is_gen = false;
         let mut buf = Vec::new();
 
-        self.ro = true;
+        self.ignore = true;
         self.idx += 1;
 
         while let Some(typ) = self.typ() {
@@ -76,7 +76,7 @@ impl Parser {
             }
         }
 
-        self.ro = false;
+        self.ignore = false;
         let mut tmp = 0;
         let mut count = 1usize;
 

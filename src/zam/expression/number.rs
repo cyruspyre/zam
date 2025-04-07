@@ -127,7 +127,7 @@ impl Parser {
                 }
 
                 return Some(Term::Integer {
-                    sign: suf == 'i',
+                    sign: suf == 'i' || neg,
                     val,
                     bit,
                     neg,

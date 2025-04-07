@@ -16,7 +16,7 @@ macro_rules! err {
 
 impl Parser {
     pub fn err<'a, S: AsRef<str> + Display + From<&'a str>>(&mut self, msg: S) -> Option<!> {
-        self.log(&mut [(self.rng, Point::Error, "")], Log::Error, msg);
+        self.log(&mut [(self.rng, Point::Error, "")], Log::Error, msg, "");
 
         None
     }
@@ -56,6 +56,7 @@ impl Parser {
                 .as_slice(),
             Log::Error,
             msg,
+            ""
         );
 
         None

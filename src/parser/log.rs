@@ -10,7 +10,7 @@ use crate::misc::Bypass;
 
 use super::{misc::Either, Parser};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Log {
     Error,
     Warning,
@@ -25,13 +25,14 @@ pub enum Point {
 }
 
 impl Parser {
-    pub fn log<'a, L: Display + AsRef<str>, M: Display + AsRef<str>>(
+    pub fn log<L: Display + AsRef<str>, M: Display + AsRef<str>, N: Display + AsRef<str>>(
         &mut self,
         pnt: &[([usize; 2], Point, L)],
         typ: Log,
         msg: M,
+        note: N,
     ) {
-        if self.ro && Log::Error == typ {
+        if self.ignore {
             return;
         }
 
@@ -48,15 +49,6 @@ impl Parser {
         let mut io = BufWriter::new(stderr().lock());
         let mut val = None;
         let mut tmp = true;
-
-        if self.line.is_empty() {
-            self.line.push(
-                match self.data[self.idx..].iter().position(|c| *c == '\n') {
-                    Some(v) => v + self.idx,
-                    _ => self.data.len(),
-                },
-            );
-        }
 
         loop {
             let Some((ref mut rng, color, indicator, mut label)) = val else {
@@ -80,14 +72,15 @@ impl Parser {
 
                 continue;
             };
+            let idx = rng[0].max(rng[1]);
 
             if match self.line.last() {
                 Some(n) => *n,
                 _ => 0,
-            } < rng[1]
+            } < idx
             {
-                let tmp = match self.data[rng[1]..].iter().position(|c| *c == '\n') {
-                    Some(n) => rng[1] + n,
+                let tmp = match self.data[idx..].iter().position(|c| *c == '\n') {
+                    Some(n) => idx + n,
                     _ => self.data.len(),
                 };
 
@@ -217,6 +210,11 @@ impl Parser {
             }
 
             val = None
+        }
+
+        if !note.as_ref().is_empty() {
+            let buf = format!("{pad}{} {}: {note}\n", "=".black(), "note".bold());
+            io.write(buf.as_bytes()).unwrap();
         }
 
         io.flush().unwrap()

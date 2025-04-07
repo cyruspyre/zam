@@ -6,7 +6,7 @@ use crate::parser::span::Identifier;
 
 use super::{expression::Expression, Block};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Variable {
         name: Identifier,

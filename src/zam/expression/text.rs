@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::parser::span::Span;
+use crate::parser::{
+    log::{Log, Point},
+    span::Span,
+};
 
 use super::{
     super::{statement::Statement, Block},
@@ -19,11 +22,20 @@ impl Parser {
             ($($x:expr),+ $(,)?) => {[$($x),+].map(|v| self.span(v)).to_vec()};
         }
 
+        self.rng.fill(self.idx + 1);
+
         let [typ, de] = match self.next() {
             c if c.is_ascii_alphabetic() => [c, self.next()],
             c => [' ', c],
         };
-        let tmp = self.idx;
+
+        self.ensure_closed(de)?;
+
+        if !matches!(typ, 'b' | 'r' | ' ') {
+            self.err("unknown prefix")?
+        }
+
+        let byte = typ == 'b';
         let mut buf: Vec<WTF> = Vec::new();
         let mut size = 0;
 
@@ -47,8 +59,22 @@ impl Parser {
                     }
                 } else if c == '{' {
                     self.rng.fill(self.idx);
+                    self.ignore = true;
+                    let tmp = self.ensure_closed('}').is_none();
+                    self.ignore = false;
+
+                    if tmp {
+                        self.log(
+                            &[(self.rng, Point::Info, "starting here")],
+                            Log::Error,
+                            "unclosed string interpolation",
+                            "if you meant to use `{`, escape it using `\\{`",
+                        );
+                        return None;
+                    }
+
                     buf.push(WTF::Exp(self.exp('}', true)?.0));
-                    self.de.pop_front();
+                    self.de.pop_back();
                     self.idx += 1;
                     continue;
                 }
@@ -64,7 +90,8 @@ impl Parser {
             }
         }
 
-        self.rng = [tmp, self.idx];
+        self.rng[1] = self.idx;
+        self.de.pop_back();
 
         if de == '"' {
             if buf.len() == 1 {
@@ -75,7 +102,7 @@ impl Parser {
                         Term::Identifier(self.span("to_string".into())),
                         Term::Tuple(Vec::new()),
                     ]))),
-                    WTF::Buf(data) => Some(Term::String { data, byte: false }),
+                    WTF::Buf(data) => Some(Term::String { data, byte }),
                 };
             }
 
@@ -101,7 +128,7 @@ impl Parser {
                     Term::AddAssign
                 ]);
                 let tmp: &[Span<Term>] = match v {
-                    WTF::Buf(data) => &self.lol([Term::String { data, byte: false }]),
+                    WTF::Buf(data) => &self.lol([Term::String { data, byte }]),
                     WTF::Exp(v) => &self.lol([
                         flatten(v),
                         Term::Access(false),

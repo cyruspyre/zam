@@ -8,12 +8,16 @@ use std::fmt::Display;
 use kind::TypeKind;
 use misc::join;
 
-use crate::parser::{misc::ValidID, span::Span};
+use crate::parser::{misc::CharExt, span::Span};
 
 use super::{expression::group::GroupValue, fields::FieldValue, Parser};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Type {
+    /// Span range covers the entire type declaration.
+    ///
+    /// For example, in `&Vec<u8>`, the range includes the entire type,
+    /// not just the base `Vec`
     pub kind: Span<TypeKind>,
     pub sub: Vec<Type>,
     pub ptr: usize,

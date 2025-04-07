@@ -2,7 +2,7 @@ use crate::parser::span::Identifier;
 
 use super::Parser;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Trait {
     name: Identifier,
     sub: Vec<Trait>,

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 use crate::{cfg::Config, err, zam::Zam};
 
-#[derive(Debug)]
 pub struct Validator {
     cfg: Config,
     srcs: HashMap<String, Zam>,

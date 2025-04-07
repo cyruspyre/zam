@@ -10,20 +10,20 @@ use super::Validator;
 
 impl Validator {
     pub fn identifier(&mut self) {
-        for src in self.bypass().srcs.values_mut() {
+        'one: for src in self.bypass().srcs.values_mut() {
             let dec = src.block.dec.bypass();
             let mut stack = vec![dec.bypass()];
 
             for (id, v) in dec {
-                let Some((rng, msg)) = (match v {
+                match v {
                     Hoistable::Variable { val: exp, .. } => {
                         let kind = exp.typ.kind.bypass();
                         let rng = kind.rng;
-                        let label = kind.bypass().try_as_number(self.cfg.bit);
+                        let label = kind.bypass().try_as_number();
 
-                        'tmp: {
+                        'two: {
                             let TypeKind::ID(id) = &kind.data else {
-                                break 'tmp;
+                                break 'two;
                             };
                             let mut pnt = Vec::new();
                             let msg = match stack.iter().rev().find_map(|v: _| v.get_key_value(id))
@@ -32,7 +32,7 @@ impl Validator {
                                     let kind = match v {
                                         Hoistable::Variable { .. } => "variable",
                                         Hoistable::Function { .. } => "function",
-                                        _ => break 'tmp,
+                                        _ => break 'two,
                                     };
 
                                     pnt.push((id.rng, Point::Info, format!("{kind} defined here")));
@@ -63,22 +63,15 @@ impl Validator {
                             };
 
                             pnt.push((rng, Point::Error, label));
-                            src.parser.log(&pnt, Log::Error, msg);
+                            src.parser.log(&pnt, Log::Error, msg, "");
+                            continue 'one;
                         }
 
-                        //exp.data[0].as_type(&exp.typ, &self.cfg);
-                        // dbg!(&exp.data);
-
                         println!("{kind:?}");
-
-                        self.infer_typ(exp)
+                        self.validate_type(&mut src.parser, exp);
                     }
-                    _ => None,
-                }) else {
-                    continue;
-                };
-
-                src.parser.err_rng(rng, msg);
+                    _ => {}
+                }
             }
         }
     }

@@ -3,18 +3,13 @@ pub mod log;
 pub mod misc;
 pub mod span;
 
-use std::{
-    any::TypeId,
-    collections::VecDeque,
-    fmt::{Debug, Display},
-    path::PathBuf,
-};
+use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
 
 use log::{Log, Point};
-use misc::{read_file, Context, Either, ValidID};
+use misc::{read_file, CharExt, Context, Either};
 use span::{Identifier, ToSpan};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Parser {
     pub path: PathBuf,
     pub data: Vec<char>,
@@ -22,8 +17,7 @@ pub struct Parser {
     pub rng: [usize; 2],
     pub idx: usize,
     pub err: usize,
-    /// Read-Only mode without throwing error
-    pub ro: bool,
+    pub ignore: bool,
     pub de: VecDeque<usize>,
 }
 
@@ -38,9 +32,14 @@ impl Parser {
             err: 0,
             rng: [0; 2],
             idx: usize::MAX,
-            ro: false,
+            ignore: false,
             de: VecDeque::new(),
         })
+    }
+
+    #[inline]
+    pub fn is_eof(&self) -> bool {
+        self.idx == self.data.len() - 1
     }
 
     pub fn _next<'a>(&'a mut self) -> Option<char> {
@@ -220,7 +219,7 @@ impl Parser {
         let idx = self.idx;
         let tmp = self._identifier(required);
 
-        if self.ro && tmp.is_none() {
+        if self.ignore && tmp.is_none() {
             self.idx = idx
         }
 
@@ -271,64 +270,60 @@ impl Parser {
     pub fn ensure_closed(&mut self, de: char) -> Option<()> {
         let tmp = self.idx;
         let typ = self.data[tmp];
+        let same = typ == de;
         let mut count = 0;
         let mut string = 0;
 
-        'one: while let Some(c) = self._next() {
-            if string != 0 {
-                continue;
-            }
-
-            if matches!(c, '\'' | '"') {
+        'a: while let Some(c) = self._next() {
+            if c.is_quote() && !same {
                 string = self.idx;
 
                 while let Some(v) = self._next() {
                     if c == v && self.data[self.idx - 1] != '\\' {
                         string = 0;
-                        break;
-                    }
-
-                    if v == '{' && !self.might('{') {
-                        self.ensure_closed('}')?;
-
-                        if let Some(v) = self.de.back() {
-                            self.idx = *v
-                        }
-                    } else if de == v && !self.might('}') {
-                        continue 'one;
+                        continue 'a;
                     }
                 }
+
+                break;
             }
 
-            if c == typ {
-                count += 1
-            } else if c == de {
+            if c == de {
                 if count == 0 {
                     self.de.push_back(self.idx);
-                    self.rng.fill(self.idx);
+                    // self.rng.fill(self.idx);
                     self.idx = tmp;
                     return Some(());
                 } else {
                     count -= 1
                 }
+            } else if c == typ {
+                count += 1
             }
         }
 
         let mut pnt = Vec::with_capacity(3);
+        let label = match string {
+            0 => String::new(),
+            _ => format!(
+                "unclosed {} literal",
+                match self.data[string] {
+                    '"' => "string",
+                    _ => "character",
+                }
+            ),
+        };
 
         pnt.push(([tmp; 2], Point::Info, "starting here"));
 
         if string != 0 {
-            pnt.push(([string; 2], Point::Error, ""))
+            pnt.push(([string; 2], Point::Info, &label))
         }
 
         pnt.push(([self.idx, 0], Point::Error, ""));
+        // dbg!(&self.de);
 
-        self.log(
-            &pnt,
-            Log::Error,
-            &format!("unclosed delimeter. expected `{de}`"),
-        );
+        self.log(&pnt, Log::Error, format!("unclosed delimeter `{de}`"), "");
 
         None
     }

@@ -3,10 +3,13 @@ mod r#struct;
 
 use std::collections::HashMap;
 
-use crate::{misc::Bypass, parser::{
-    log::{Log, Point},
-    span::Identifier,
-}};
+use crate::{
+    misc::Bypass,
+    parser::{
+        log::{Log, Point},
+        span::Identifier,
+    },
+};
 
 use super::{
     expression::Expression,
@@ -16,7 +19,7 @@ use super::{
     Parser,
 };
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
     pub dec: HashMap<Identifier, Hoistable>,
     pub stm: Vec<Statement>,
@@ -26,7 +29,7 @@ pub struct Block {
 ///
 /// All the fields are applicable to both global and local scope.
 /// Except for `Variable`, which is to be used in global scope only.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Hoistable {
     Function {
         arg: Vec<Field<Type>>,
@@ -163,6 +166,7 @@ impl Parser {
                 &v,
                 Log::Error,
                 &format!("identifier `{k}` declared multiple times"),
+                "",
             );
         }
 

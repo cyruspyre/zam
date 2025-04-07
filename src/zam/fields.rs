@@ -4,7 +4,7 @@ use crate::parser::span::Identifier;
 
 use super::Parser;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Field<T> {
     pub name: Identifier,
     pub data: T,

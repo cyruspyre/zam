@@ -11,7 +11,6 @@ mod fields;
 mod statement;
 pub mod typ;
 
-#[derive(Debug)]
 pub struct Zam {
     pub parser: Parser,
     pub block: Block,

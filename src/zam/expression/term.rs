@@ -3,7 +3,11 @@ use std::fmt::Display;
 use crate::{
     cfg::Config,
     parser::span::{Identifier, Span},
-    zam::typ::{kind::TypeKind, Type},
+    zam::{
+        block::Hoistable,
+        statement::Statement,
+        typ::{kind::TypeKind, Type},
+    },
 };
 
 use super::{
@@ -11,7 +15,7 @@ use super::{
     Expression, Parser,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     None,
     Integer {
@@ -54,6 +58,7 @@ pub enum Term {
     Add,
     AddAssign,
     Sub,
+    Mul,
     Div,
     Mod,
     Shl,
@@ -68,27 +73,6 @@ pub enum Term {
 }
 
 impl Term {
-    #[inline]
-    pub fn valid_first_term(&self) -> bool {
-        match self {
-            Term::Integer { .. }
-            | Term::Float { .. }
-            | Term::Char(_)
-            | Term::String { .. }
-            | Term::Rng
-            | Term::Block(_)
-            | Term::Ref
-            | Term::Deref
-            | Term::Group(_)
-            | Term::Identifier(_)
-            | Term::None
-            | Term::Null
-            | Term::Struct(_)
-            | Term::Tuple(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn as_type(&self, from: &Type, cfg: &Config) {
         let tmp = match self {
             Term::Integer { bit, sign, .. } => match bit {
@@ -155,9 +139,79 @@ impl Display for Term {
                 }
                 _ => format!("{val}u{bit}"),
             },
+            Term::Float { val, bit } => format!("{val:?}f{bit}"),
             Term::Group(v) => format!("({})", v.to_string()),
+            Term::Tuple(v) => format!(
+                "({})",
+                v.iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Term::As(v) => format!("as {v}"),
             Term::Identifier(v) => v.data.clone(),
+            Term::String { data, byte } => match byte {
+                true => format!("{:?}", data.as_bytes()),
+                _ => format!("{data:?}"),
+            },
+            Term::Block(Block { dec, stm }) => {
+                let mut buf = Vec::with_capacity(dec.len() + stm.len());
+
+                for (k, v) in dec {
+                    let tmp = match v {
+                        Hoistable::Variable { val, cte, public } => {
+                            format!(
+                                "{}{} {k}{}{};",
+                                if *public { "pub " } else { "" },
+                                if *cte { "cte" } else { "let" },
+                                match &val.typ.kind.data {
+                                    TypeKind::Unknown => String::new(),
+                                    v => format!(": {v}"),
+                                },
+                                format!(
+                                    " = {}",
+                                    val.data
+                                        .iter()
+                                        .map(|v| v.to_string())
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                )
+                            )
+                        }
+                        _ => todo!(),
+                    };
+
+                    buf.push(tmp);
+                }
+
+                for v in stm {
+                    let tmp = match v {
+                        Statement::Variable { name, val, cte } => {
+                            format!(
+                                "{} {name}{}{};",
+                                if *cte { "cte" } else { "let" },
+                                match &val.typ.kind.data {
+                                    TypeKind::Unknown => String::new(),
+                                    v => format!(": {v}"),
+                                },
+                                format!(
+                                    " = {}",
+                                    val.data
+                                        .iter()
+                                        .map(|v| v.to_string())
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                )
+                            )
+                        }
+                        _ => "lol\n".to_string(),
+                    };
+
+                    buf.push(tmp);
+                }
+
+                format!("{{\n    {}\n}}", buf.join("\n"))
+            }
             _ => match self {
                 Term::Access(v) => match v {
                     true => "::",
@@ -165,9 +219,11 @@ impl Display for Term {
                 },
                 Term::Add => "+",
                 Term::Sub => "-",
+                Term::Mul | Term::Deref => "*",
                 Term::Div => "/",
+                Term::Mod => "%",
                 Term::Eq => "==",
-                _ => "IDK",
+                _ => "UNKNOWN",
             }
             .into(),
         };

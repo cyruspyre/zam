@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{fmt::Display, u32};
 
 use super::{misc::join, Type};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum TypeKind {
     #[default]
     Unknown,
@@ -22,8 +22,14 @@ pub enum TypeKind {
 impl Display for TypeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let data = match self {
-            TypeKind::Integer { bit, sign } => format!("{}{bit}", if *sign { 'i' } else { 'u' }),
-            TypeKind::Float(v) => format!("f{v}"),
+            TypeKind::Integer { bit, sign } => match bit {
+                0 => format!("<{}integer>", if *sign { "signed_" } else { "" }),
+                _ => format!("{}{bit}", if *sign { 'i' } else { 'u' }),
+            },
+            TypeKind::Float(v) => match v {
+                0 => "<float>".into(),
+                _ => format!("f{v}"),
+            },
             TypeKind::Fn { arg, ret } => format!("fn({}) -> {ret}", join(arg)),
             TypeKind::Tuple(items) => join(items),
             TypeKind::ID(v) => v.into(),
@@ -35,7 +41,7 @@ impl Display for TypeKind {
 }
 
 impl TypeKind {
-    pub fn try_as_number(&mut self, max_bit: u32) -> Option<String> {
+    pub fn try_as_number(&mut self) -> Option<String> {
         let TypeKind::ID(id) = self else { return None };
         let mut iter = id.chars();
         let Some(pfx) = iter.next() else {
@@ -65,15 +71,15 @@ impl TypeKind {
                 return Some("did you mean `f32` or `f64`?".into());
             }
 
-            bit = max_bit
+            bit = u32::MAX
         }
 
         *self = match pfx {
             'f' if matches!(bit, 32 | 64) => TypeKind::Float(bit),
             'i' | 'u' => match bit {
-                1..=64 => TypeKind::Integer {
+                1..=64 | u32::MAX => TypeKind::Integer {
                     bit,
-                    sign: pfx == 's',
+                    sign: pfx == 'i',
                 },
                 _ => return Some(format!("did you mean `{pfx}{{1..=64}}`?")),
             },

@@ -19,6 +19,7 @@ impl Parser {
         } else {
             Default::default()
         };
+        println!("{val}");
 
         val.typ = typ;
 
