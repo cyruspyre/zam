@@ -1,6 +1,7 @@
 mod identifier;
 mod main_fn;
 mod typ;
+mod variable;
 
 use std::collections::HashMap;
 

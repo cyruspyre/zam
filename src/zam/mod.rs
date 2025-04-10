@@ -8,7 +8,7 @@ pub mod block;
 pub mod expression;
 mod external;
 mod fields;
-mod statement;
+pub mod statement;
 pub mod typ;
 
 pub struct Zam {

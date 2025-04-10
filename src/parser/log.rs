@@ -6,9 +6,9 @@ use std::{
 
 use colored::{Color, Colorize};
 
-use crate::misc::Bypass;
+use crate::misc::{Bypass, Either};
 
-use super::{misc::Either, Parser};
+use super::Parser;
 
 #[derive(Debug)]
 pub enum Log {

@@ -6,8 +6,10 @@ pub mod span;
 use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
 
 use log::{Log, Point};
-use misc::{read_file, CharExt, Context, Either};
+use misc::{read_file, CharExt};
 use span::{Identifier, ToSpan};
+
+use crate::misc::{Either, Result};
 
 #[derive(Default)]
 pub struct Parser {
@@ -65,7 +67,7 @@ impl Parser {
         self._next().unwrap()
     }
 
-    pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Context<bool, String> {
+    pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Result<String> {
         let tmp = self.idx;
         let mut op: Vec<_> = op.into_iter().map(|v| v.to_string()).collect();
         let mut buf = String::new();
@@ -101,11 +103,14 @@ impl Parser {
             self.idx = tmp;
         }
 
-        Context { ctx, data: buf }
+        match ctx {
+            true => Ok(buf),
+            _ => Err(buf),
+        }
     }
 
     pub fn next_char_if(&mut self, op: &[char]) -> char {
-        self.next_if(op).data.chars().next().unwrap_or_default()
+        self.next_if(op).either().chars().next().unwrap_or_default()
     }
 
     pub fn _peek(&mut self) -> Option<char> {
@@ -354,13 +359,13 @@ impl Parser {
 
     pub fn might<T: Display>(&mut self, t: T) -> bool {
         let rng = self.rng;
-        let tmp = self.next_if(&[t]).ctx;
+        let ok = self.next_if(&[t]).is_ok();
 
-        if !tmp {
+        if !ok {
             self.rng = rng
         }
 
-        tmp
+        ok
     }
 
     #[must_use]
@@ -368,7 +373,7 @@ impl Parser {
         let rng = self.rng;
         let tmp = self.next_if(op);
 
-        if !tmp.ctx {
+        if let Err(tmp) = tmp {
             let idx = self.rng[0];
             let multiline = self
                 .line
@@ -386,7 +391,7 @@ impl Parser {
             self.err_op(tmp.is_empty() || multiline, &op)?
         }
 
-        Some(tmp.data)
+        tmp.ok()
     }
 
     #[must_use]

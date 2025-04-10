@@ -1,3 +1,5 @@
+pub type Result<T> = std::result::Result<T, T>;
+
 /// A trait for bypassing Rust's lifetime rules in specific scenarios.
 pub trait Bypass {
     /// Bypasses rust's lifetime rules
@@ -11,3 +13,16 @@ pub trait Bypass {
 }
 
 impl<T> Bypass for T {}
+
+pub trait Either<T> {
+    fn either(self) -> T;
+}
+
+impl<T> Either<T> for Result<T> {
+    fn either(self) -> T {
+        match self {
+            Ok(v) => v,
+            Err(e) => e,
+        }
+    }
+}

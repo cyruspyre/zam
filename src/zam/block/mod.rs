@@ -1,7 +1,7 @@
 mod function;
 mod r#struct;
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::{
     misc::Bypass,
@@ -21,7 +21,7 @@ use super::{
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
-    pub dec: HashMap<Identifier, Hoistable>,
+    pub dec: IndexMap<Identifier, Hoistable>,
     pub stm: Vec<Statement>,
 }
 
@@ -48,7 +48,19 @@ pub enum Hoistable {
         val: Expression,
         cte: bool,
         public: bool,
+        checked: bool,
     },
+    VarRef(*mut Type),
+}
+
+impl Hoistable {
+    pub fn name(&self) -> &str {
+        match self {
+            Hoistable::Function { .. } => "function",
+            Hoistable::Struct { .. } => "struct",
+            Hoistable::Variable { .. } | Hoistable::VarRef(_) => "variable",
+        }
+    }
 }
 
 impl Parser {
@@ -62,9 +74,9 @@ impl Parser {
             self.ensure_closed('}')?;
         }
 
-        let mut dup = HashMap::new();
+        let mut dup = IndexMap::new();
         let mut flag = true;
-        let mut dec: HashMap<Identifier, _> = HashMap::new();
+        let mut dec: IndexMap<Identifier, _> = IndexMap::new();
         let stm_ref = stm.bypass();
         let de = match self.de.back() {
             Some(n) => n - 1,
@@ -97,6 +109,7 @@ impl Parser {
                                 val,
                                 cte,
                                 public: false,
+                                checked: false,
                             },
                         ),
                         _ => unreachable!(),
@@ -116,6 +129,7 @@ impl Parser {
                         Hoistable::Function { public, .. }
                         | Hoistable::Struct { public, .. }
                         | Hoistable::Variable { public, .. } => *public = true,
+                        _ => {}
                     }
                 }
 

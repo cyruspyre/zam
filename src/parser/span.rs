@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::{Debug, Display},
+    fmt::Display,
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
@@ -30,6 +30,18 @@ impl<T: Default> Default for Span<T> {
             rng: [0; 2],
             data: T::default(),
         }
+    }
+}
+
+impl<T> Borrow<T> for &Span<T> {
+    fn borrow(&self) -> &T {
+        &self
+    }
+}
+
+impl<T> Borrow<T> for &mut Span<T> {
+    fn borrow(&self) -> &T {
+        &self
     }
 }
 

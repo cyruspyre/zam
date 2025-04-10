@@ -1,6 +1,6 @@
 use crate::{
     parser::span::Identifier,
-    zam::typ::{Type, kind::TypeKind},
+    zam::typ::{kind::TypeKind, Type},
 };
 
 use super::{Hoistable, Parser};

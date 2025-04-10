@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::parser::{
     log::{Log, Point},
@@ -99,7 +99,7 @@ impl Parser {
                     WTF::Exp(v) => Some(Term::Group(Expression::from(arr![
                         flatten(v),
                         Term::Access(false),
-                        Term::Identifier(self.span("to_string".into())),
+                        Term::Identifier("to_string".into()),
                         Term::Tuple(Vec::new()),
                     ]))),
                     WTF::Buf(data) => Some(Term::String { data, byte }),
@@ -109,9 +109,9 @@ impl Parser {
             let mut stm = vec![Statement::Variable {
                 name: self.span("0".into()),
                 val: Expression::from(arr![
-                    Term::Identifier(self.span("String".into())),
+                    Term::Identifier("String".into()),
                     Term::Access(true),
-                    Term::Identifier(self.span("with_capacity".into())),
+                    Term::Identifier("with_capacity".into()),
                     Term::Tuple(vec![Expression::from(arr![Term::Integer {
                         val: size,
                         bit: 64,
@@ -123,16 +123,13 @@ impl Parser {
             }];
 
             for v in buf {
-                let mut exp = Expression::from(arr![
-                    Term::Identifier(self.span("0".into())),
-                    Term::AddAssign
-                ]);
+                let mut exp = Expression::from(arr![Term::Identifier("0".into()), Term::AddAssign]);
                 let tmp: &[Span<Term>] = match v {
                     WTF::Buf(data) => &self.lol([Term::String { data, byte }]),
                     WTF::Exp(v) => &self.lol([
                         flatten(v),
                         Term::Access(false),
-                        Term::Identifier(self.span("to_string".into())),
+                        Term::Identifier("to_string".into()),
                         Term::Tuple(Vec::new()),
                     ]),
                 };
@@ -142,7 +139,7 @@ impl Parser {
             }
 
             return Some(Term::Block(Block {
-                dec: HashMap::new(),
+                dec: IndexMap::new(),
                 stm,
             }));
         }

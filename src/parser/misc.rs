@@ -1,20 +1,6 @@
-use std::{fs::read_to_string, ops::Deref, path::PathBuf};
+use std::{fs::read_to_string, path::PathBuf};
 
 use crate::err;
-
-#[derive(Debug)]
-pub struct Context<C, D> {
-    pub ctx: C,
-    pub data: D,
-}
-
-impl<C, D> Deref for Context<C, D> {
-    type Target = D;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
 
 pub trait CharExt {
     fn is_id(&self) -> bool;
@@ -28,19 +14,6 @@ impl CharExt for char {
 
     fn is_quote(&self) -> bool {
         matches!(self, '"' | '\'')
-    }
-}
-
-pub trait Either<T> {
-    fn either(self) -> T;
-}
-
-impl<T> Either<T> for Result<T, T> {
-    fn either(self) -> T {
-        match self {
-            Ok(v) => v,
-            Err(e) => e,
-        }
     }
 }
 

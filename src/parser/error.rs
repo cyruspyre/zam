@@ -56,7 +56,7 @@ impl Parser {
                 .as_slice(),
             Log::Error,
             msg,
-            ""
+            "",
         );
 
         None

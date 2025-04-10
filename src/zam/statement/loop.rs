@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::zam::expression::Expression;
 
@@ -18,22 +18,19 @@ impl Parser {
         if let Some(v) = match typ {
             "for" => {
                 let tmp = self.identifier(true)?;
-                let (val, exp) = (
-                    self.span(format!("{}{tmp}", stm.len())),
-                    self.span(stm.len().to_string()),
-                );
-                let nullable = self.span(format!("_{val}"));
+                let [val, exp] = [format!("{}{tmp}", stm.len()), stm.len().to_string()];
+                let nullable = format!("_{val}");
                 self.expect(&["in"])?;
 
                 parent_stm.push(Statement::Variable {
-                    name: exp.clone(),
+                    name: self.span(exp.clone()),
                     val: self.exp('{', true)?.0,
                     cte: false,
                 });
 
                 for ele in [val.clone(), nullable.clone()] {
                     parent_stm.push(Statement::Variable {
-                        name: ele.clone(),
+                        name: self.span(ele),
                         val: Default::default(),
                         cte: false,
                     });
@@ -44,7 +41,7 @@ impl Parser {
                     Term::Assign,
                     Term::Identifier(exp),
                     Term::Access(false),
-                    Term::Identifier(self.span("next".into())),
+                    "next".into(),
                     Term::Tuple(Vec::new()),
                 ])));
 
@@ -58,7 +55,7 @@ impl Parser {
                         self._break(),
                     )],
                     default: Some(Block {
-                        dec: HashMap::new(),
+                        dec: IndexMap::new(),
                         stm: vec![Statement::Expression(Expression::from(arr![
                             Term::Identifier(val),
                             Term::Assign,
@@ -85,7 +82,7 @@ impl Parser {
 
     fn _break(&self) -> Block {
         Block {
-            dec: HashMap::new(),
+            dec: IndexMap::new(),
             stm: vec![Statement::Break(self.span(String::new()))],
         }
     }

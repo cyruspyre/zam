@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     cfg::Config,
-    parser::span::{Identifier, Span},
+    parser::span::Span,
     zam::{
         block::Hoistable,
         statement::Statement,
@@ -47,7 +47,7 @@ pub enum Term {
     Tuple(Vec<Expression>),
     Struct(Vec<Field<Expression>>),
     Generic(Vec<Span<Type>>),
-    Identifier(Identifier),
+    Identifier(String),
     Access(bool),
     Rng,
     Assign,
@@ -124,6 +124,12 @@ impl Term {
     }
 }
 
+impl Into<Term> for &str {
+    fn into(self) -> Term {
+        Term::Identifier(self.into())
+    }
+}
+
 impl Display for Term {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let out = match self {
@@ -149,7 +155,7 @@ impl Display for Term {
                     .join(", ")
             ),
             Term::As(v) => format!("as {v}"),
-            Term::Identifier(v) => v.data.clone(),
+            Term::Identifier(v) => v.clone(),
             Term::String { data, byte } => match byte {
                 true => format!("{:?}", data.as_bytes()),
                 _ => format!("{data:?}"),
@@ -159,7 +165,9 @@ impl Display for Term {
 
                 for (k, v) in dec {
                     let tmp = match v {
-                        Hoistable::Variable { val, cte, public } => {
+                        Hoistable::Variable {
+                            val, cte, public, ..
+                        } => {
                             format!(
                                 "{}{} {k}{}{};",
                                 if *public { "pub " } else { "" },
