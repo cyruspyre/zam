@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clang = { version = "2.0.0", features = ["runtime"] }
-clap = { version = "4.5.28", features = ["derive"] }
+clap = "4.5.28"
 colored = "3.0.0"
 hexf-parse = "0.2.1"
 indexmap = "2.9.0"
@@ -15,3 +15,6 @@ strsim = "0.11.1"
 toml = "0.8.20"
 unicode-segmentation = "1.12.0"
 unicode-width = "0.2.0"
+
+[profile.dev]
+debug = 0

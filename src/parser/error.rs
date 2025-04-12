@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::misc::Either;
+
 use super::{
     log::{Log, Point},
     Parser,

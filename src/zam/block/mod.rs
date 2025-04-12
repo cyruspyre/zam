@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     expression::Expression,
-    fields::Field,
+    fields::Fields,
     statement::Statement,
     typ::{generic::Generic, Type},
     Parser,
@@ -32,7 +32,7 @@ pub struct Block {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Hoistable {
     Function {
-        arg: Vec<Field<Type>>,
+        arg: Fields<Type>,
         gen: Generic,
         ret: Type,
         block: Option<Block>,
@@ -40,8 +40,7 @@ pub enum Hoistable {
     },
     Struct {
         gen: Generic,
-        fields: Vec<Field<Type>>,
-        rng: [usize; 2],
+        fields: Fields<Type>,
         public: bool,
     },
     Variable {

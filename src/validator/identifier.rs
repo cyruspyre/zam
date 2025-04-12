@@ -60,8 +60,9 @@ impl Validator {
             stack.push(src.block.dec.bypass());
 
             for (id, v) in &mut *dec {
-                let tmp = match v {
+                match v {
                     Hoistable::Variable { .. } => self.variable(cur, v, &mut lookup),
+                    Hoistable::Struct { gen, fields, .. } => {}
                     _ => {}
                 };
             }

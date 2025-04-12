@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    super::{fields::Field, Block},
+    super::{fields::Fields, Block},
     Expression, Parser,
 };
 
@@ -45,7 +45,7 @@ pub enum Term {
     Block(Block),
     Group(Expression),
     Tuple(Vec<Expression>),
-    Struct(Vec<Field<Expression>>),
+    Struct(Fields<Expression>),
     Generic(Vec<Span<Type>>),
     Identifier(String),
     Access(bool),

@@ -1,3 +1,5 @@
+use indexmap::IndexMap;
+
 use crate::{
     parser::span::{Identifier, Span},
     zam::{
@@ -8,11 +10,11 @@ use crate::{
 
 use super::{r#trait::Trait, Parser};
 
-pub type Generic = Vec<(Identifier, Vec<Trait>)>;
+pub type Generic = IndexMap<Identifier, Vec<Trait>>;
 
 impl Parser {
     pub fn dec_gen(&mut self) -> Option<Generic> {
-        let mut data = Vec::new();
+        let mut data = IndexMap::new();
 
         if self.might('>') {
             return Some(data);
@@ -26,7 +28,7 @@ impl Parser {
             }
 
             let de = self.expect_char(&[':', '>'])?;
-            data.push((tmp, Vec::new()));
+            data.insert(tmp, Vec::new());
 
             if de == '>' {
                 break;

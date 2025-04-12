@@ -1,14 +1,16 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     io::{stderr, BufWriter, Write},
     ops::{Add, Sub},
+    str::FromStr,
 };
 
 use colored::{Color, Colorize};
 
 use crate::misc::{Bypass, Either};
 
-use super::Parser;
+use super::{Context, Parser};
 
 #[derive(Debug)]
 pub enum Log {
@@ -25,9 +27,9 @@ pub enum Point {
 }
 
 impl Parser {
-    pub fn log<L: Display + AsRef<str>, M: Display + AsRef<str>, N: Display + AsRef<str>>(
+    pub fn log<'a, L: Display + AsRef<str>, M: Display + AsRef<str>, N: Display + AsRef<str>>(
         &mut self,
-        pnt: &[([usize; 2], Point, L)],
+        pnt: &'a [([usize; 2], Point, L)],
         typ: Log,
         msg: M,
         note: N,
@@ -47,7 +49,18 @@ impl Parser {
         let border = format!("{pad}- ").black();
         let mut iter = pnt.into_iter().peekable();
         let mut io = BufWriter::new(stderr().lock());
-        let mut val = None;
+        let mut val: Option<([usize; 2], Color, &str, &'a str)> = match &self.ctx {
+            Some(v) => {
+                // liftime bs ¯\_(ツ)_/¯
+                let tmp = match v.data {
+                    Context::Struct => "while parsing this struct",
+                    Context::Function => "while parsing this function",
+                };
+
+                Some((v.rng, Color::BrightBlue, "-", tmp))
+            }
+            _ => None,
+        };
         let mut tmp = true;
 
         loop {
@@ -65,7 +78,7 @@ impl Parser {
                             Point::Info => "-",
                             Point::Error | Point::Warning => "^",
                         },
-                        c,
+                        c.as_ref(),
                     )),
                     _ => break,
                 };
@@ -152,7 +165,7 @@ impl Parser {
 
                 match iter.next_if(|v| v.0[0] == v.0[1] && v.0[1] < end) {
                     Some((ref rng_, _, label_)) => {
-                        if !label.as_ref().is_empty() {
+                        if !label.is_empty() {
                             labels.push((
                                 labels
                                     .last()
@@ -165,7 +178,7 @@ impl Parser {
                         }
 
                         start = rng[1] + 1;
-                        label = label_;
+                        label = label_.as_ref();
                         *rng = *rng_;
                     }
                     _ => {
@@ -191,8 +204,7 @@ impl Parser {
                     .unwrap();
 
                     if labels.len() - i == 1 {
-                        io.write(label.as_ref().color(color).to_string().as_bytes())
-                            .unwrap();
+                        io.write(label.color(color).to_string().as_bytes()).unwrap();
                         tmp.pop();
                     }
                 }

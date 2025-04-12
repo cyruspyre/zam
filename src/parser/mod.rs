@@ -7,9 +7,14 @@ use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
 
 use log::{Log, Point};
 use misc::{read_file, CharExt};
-use span::{Identifier, ToSpan};
+use span::{Identifier, Span, ToSpan};
 
-use crate::misc::{Either, Result};
+use crate::misc::{Bypass, Either, Result};
+
+pub enum Context {
+    Struct,
+    Function,
+}
 
 #[derive(Default)]
 pub struct Parser {
@@ -19,6 +24,7 @@ pub struct Parser {
     pub rng: [usize; 2],
     pub idx: usize,
     pub err: usize,
+    pub ctx: Option<Span<Context>>,
     pub ignore: bool,
     pub de: VecDeque<usize>,
 }
@@ -34,6 +40,7 @@ impl Parser {
             err: 0,
             rng: [0; 2],
             idx: usize::MAX,
+            ctx: None,
             ignore: false,
             de: VecDeque::new(),
         })
@@ -69,9 +76,12 @@ impl Parser {
 
     pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Result<String> {
         let tmp = self.idx;
+        let mut rng = self.rng;
         let mut op: Vec<_> = op.into_iter().map(|v| v.to_string()).collect();
         let mut buf = String::new();
-        let mut ctx = false;
+        let mut ok = false;
+        let de = *self.de.back().unwrap_or(&0);
+        let mut early = true;
 
         op.sort_unstable();
 
@@ -85,25 +95,36 @@ impl Parser {
             }
 
             if buf.is_empty() {
-                self.rng.fill(self.idx);
+                rng.fill(self.idx);
             }
 
             buf.push(c);
 
             if op.binary_search(&buf).is_ok() {
-                ctx = true;
+                ok = true;
+                break;
+            }
+
+            if de == self.idx {
+                self.idx -= 1;
+                early = false;
+                buf.pop();
                 break;
             }
         }
 
-        self.rng[1] = self.idx;
+        rng[1] = self.idx;
 
-        if !ctx {
-            self.rng[1] -= 1;
+        if !ok {
+            rng[1] -= 1;
             self.idx = tmp;
         }
 
-        match ctx {
+        if ok || early {
+            self.rng = rng
+        }
+
+        match ok {
             true => Ok(buf),
             _ => Err(buf),
         }
@@ -182,20 +203,31 @@ impl Parser {
 
     fn _identifier(&mut self, required: bool) -> Option<Identifier> {
         let tmp = self.word();
-        let rng = self.rng;
+        let mut err = |msg: &str| {
+            self.log(
+                &[(self.rng, Point::Error, msg)],
+                Log::Error,
+                format!("expected `<identifier>`",),
+                "",
+            );
+
+            None::<!>
+        };
 
         if required && tmp.is_empty() {
-            let after = self.until_whitespace().is_empty();
+            let rng = self.rng;
+            let mut after = self.until_whitespace().is_empty();
 
-            if !after && self.de.binary_search(&self.idx).is_err() {
-                self.rng = rng
+            if self.data[self.rng[0] - 1] == '\n' {
+                self.rng = rng;
+                after = true;
             }
 
             self.err_op(after, &["<identifier>"])?
         }
 
         if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-            self.err("identifiers cannot start with number")?
+            err("cannot start with a number")?
         }
 
         if matches!(
@@ -214,10 +246,10 @@ impl Parser {
                 | "struct"
                 | "extern"
         ) {
-            self.err("identifier cannot be a keyword")?
+            err("cannot be a keyword")?
         }
 
-        Some(tmp.span(rng))
+        Some(tmp.span(self.rng))
     }
 
     pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
@@ -296,7 +328,6 @@ impl Parser {
             if c == de {
                 if count == 0 {
                     self.de.push_back(self.idx);
-                    // self.rng.fill(self.idx);
                     self.idx = tmp;
                     return Some(());
                 } else {
@@ -380,8 +411,8 @@ impl Parser {
                 .get(self.line.binary_search(&rng[0]).either())
                 .is_some_and(|v| idx > *v);
 
-            if TypeId::of::<T>() == TypeId::of::<char>() {
-                self.rng.fill(idx)
+            if !tmp.is_empty() && TypeId::of::<T>() == TypeId::of::<char>() {
+                self.rng[0] = self.rng[1];
             }
 
             if multiline {

@@ -1,38 +1,34 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
-use crate::parser::span::Identifier;
+use crate::parser::{
+    log::{Log, Point},
+    span::{Identifier, Span, ToSpan},
+};
 
 use super::Parser;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Field<T> {
-    pub name: Identifier,
-    pub data: T,
-    pub rng: [[usize; 2]; 2],
-}
+pub type Fields<T> = IndexMap<Identifier, Span<T>>;
 
 impl Parser {
-    pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Vec<Field<T>>> {
+    pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Fields<T>> {
         self.ensure_closed(de)?;
-        let mut fields = Vec::new();
+        let mut fields: IndexMap<Span<String>, Span<T>> = IndexMap::new();
+        let mut dup = IndexMap::new();
 
         loop {
-            let name = self.identifier(false)?;
-            let one = self.rng;
-
-            if name.is_empty() {
-                if let Some(c) = self._next() {
-                    if c == de {
-                        break;
-                    }
-                }
-
-                // self.rng.fill(self.idx);
-                self.err_op(false, &["<identifier>"])?
+            if self.might(de) {
+                break;
             }
+
+            // if fields.len() > 0 {
+            //     self.expect(&[','])?;
+            // }
+
+            let name = self.identifier(true)?;
 
             self.expect_char(&[':'])?;
             self.skip_whitespace();
+
             let two = self.idx + 1;
             let data = T::field_value(self)?;
             self.rng = [two, self.idx];
@@ -45,33 +41,28 @@ impl Parser {
                 }
             }
 
-            fields.push(Field {
-                name,
-                data,
-                rng: [one, [two, self.idx]],
-            });
-
-            if self.might(de) {
-                break;
+            if let Some((prev, _)) = fields.get_key_value(&name) {
+                dup.entry(name.data)
+                    .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
+                    .push((name.rng, Point::Error, ""))
+            } else {
+                fields.insert(name, data.span([two, self.idx]));
             }
 
-            self.expect_char(&[','])?;
+            if self.expect_char(&[',', de])? == de {
+                break;
+            }
         }
 
         self.rng.fill(self.idx);
 
-        let mut tmp: HashMap<_, Vec<_>> = HashMap::with_capacity(fields.len());
-
-        for v in &fields {
-            tmp.entry(&v.name).or_default().push(v.rng[0]);
-        }
-
-        for v in tmp.values_mut() {
-            if v.len() < 2 {
-                continue;
-            }
-
-            self.err_mul(v, "declared multiple times")?
+        for (k, v) in dup {
+            self.log(
+                &v,
+                Log::Error,
+                &format!("`{k}` declared multiple times"),
+                "",
+            );
         }
 
         self.de.pop_back();

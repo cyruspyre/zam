@@ -47,7 +47,7 @@ impl From<Vec<Span<Term>>> for Expression {
 
 impl FieldValue for Expression {
     fn field_value(src: &mut Parser) -> Option<Self> {
-        Some(src.exp(',', false)?.0)
+        Some(src.exp(',', true)?.0)
     }
 }
 

@@ -1,3 +1,5 @@
+use indexmap::IndexMap;
+
 use crate::{
     parser::span::Identifier,
     zam::typ::{kind::TypeKind, Type},
@@ -11,7 +13,7 @@ impl Parser {
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
             '<' => self.dec_gen()?,
-            _ => Vec::new(),
+            _ => IndexMap::new(),
         };
 
         if de == '<' {
