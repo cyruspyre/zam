@@ -166,19 +166,19 @@ impl Display for Term {
                 for (k, v) in dec {
                     let tmp = match v {
                         Hoistable::Variable {
-                            val, cte, public, ..
+                            exp, cte, public, ..
                         } => {
                             format!(
                                 "{}{} {k}{}{};",
                                 if *public { "pub " } else { "" },
                                 if *cte { "cte" } else { "let" },
-                                match &val.typ.kind.data {
+                                match &exp.typ.kind.data {
                                     TypeKind::Unknown => String::new(),
                                     v => format!(": {v}"),
                                 },
                                 format!(
                                     " = {}",
-                                    val.data
+                                    exp.data
                                         .iter()
                                         .map(|v| v.to_string())
                                         .collect::<Vec<_>>()
@@ -194,17 +194,17 @@ impl Display for Term {
 
                 for v in stm {
                     let tmp = match v {
-                        Statement::Variable { name, val, cte } => {
+                        Statement::Variable { name, exp, cte } => {
                             format!(
                                 "{} {name}{}{};",
                                 if *cte { "cte" } else { "let" },
-                                match &val.typ.kind.data {
+                                match &exp.typ.kind.data {
                                     TypeKind::Unknown => String::new(),
                                     v => format!(": {v}"),
                                 },
                                 format!(
                                     " = {}",
-                                    val.data
+                                    exp.data
                                         .iter()
                                         .map(|v| v.to_string())
                                         .collect::<Vec<_>>()

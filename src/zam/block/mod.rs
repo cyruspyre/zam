@@ -44,22 +44,12 @@ pub enum Hoistable {
         public: bool,
     },
     Variable {
-        val: Expression,
+        exp: Expression,
         cte: bool,
         public: bool,
-        checked: bool,
+        done: bool,
     },
     VarRef(*mut Type),
-}
-
-impl Hoistable {
-    pub fn name(&self) -> &str {
-        match self {
-            Hoistable::Function { .. } => "function",
-            Hoistable::Struct { .. } => "struct",
-            Hoistable::Variable { .. } | Hoistable::VarRef(_) => "variable",
-        }
-    }
 }
 
 impl Parser {
@@ -102,13 +92,13 @@ impl Parser {
                     "fn" => self.fun()?,
                     "struct" => self.strukt()?,
                     "let" | "cte" if global => match self.var(tmp == "cte")? {
-                        Statement::Variable { name, val, cte } => (
+                        Statement::Variable { name, exp, cte } => (
                             name,
                             Hoistable::Variable {
-                                val,
+                                exp,
                                 cte,
                                 public: false,
-                                checked: false,
+                                done: false,
                             },
                         ),
                         _ => unreachable!(),

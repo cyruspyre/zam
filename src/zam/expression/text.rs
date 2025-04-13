@@ -108,7 +108,7 @@ impl Parser {
 
             let mut stm = vec![Statement::Variable {
                 name: self.span("0".into()),
-                val: Expression::from(arr![
+                exp: Expression::from(arr![
                     Term::Identifier("String".into()),
                     Term::Access(true),
                     Term::Identifier("with_capacity".into()),

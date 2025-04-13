@@ -1,9 +1,7 @@
 use std::{
-    borrow::Cow,
     fmt::Display,
     io::{stderr, BufWriter, Write},
     ops::{Add, Sub},
-    str::FromStr,
 };
 
 use colored::{Color, Colorize};

@@ -1,7 +1,9 @@
 mod identifier;
 mod main_fn;
+mod r#struct;
 mod typ;
 mod variable;
+mod lookup;
 
 use std::collections::HashMap;
 
@@ -35,17 +37,5 @@ impl Validator {
                 }
             )
         }
-    }
-
-    pub fn lookup_dec(&self, id: &String) -> Vec<&String> {
-        let mut tmp = Vec::new();
-
-        for (path, src) in &self.srcs {
-            if src.block.dec.contains_key(id) {
-                tmp.push(path);
-            }
-        }
-
-        tmp
     }
 }

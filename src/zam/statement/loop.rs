@@ -24,14 +24,14 @@ impl Parser {
 
                 parent_stm.push(Statement::Variable {
                     name: self.span(exp.clone()),
-                    val: self.exp('{', true)?.0,
+                    exp: self.exp('{', true)?.0,
                     cte: false,
                 });
 
                 for ele in [val.clone(), nullable.clone()] {
                     parent_stm.push(Statement::Variable {
                         name: self.span(ele),
-                        val: Default::default(),
+                        exp: Default::default(),
                         cte: false,
                     });
                 }

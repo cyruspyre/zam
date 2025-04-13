@@ -22,6 +22,7 @@ use super::{fields::FieldValue, typ::Type, Parser};
 pub struct Expression {
     pub data: Vec<Span<Term>>,
     pub typ: Type,
+    pub done: bool,
 }
 
 impl Expression {
@@ -40,7 +41,7 @@ impl From<Vec<Span<Term>>> for Expression {
     fn from(value: Vec<Span<Term>>) -> Self {
         Self {
             data: value,
-            typ: Type::default(),
+            ..Default::default()
         }
     }
 }
@@ -280,7 +281,7 @@ impl Parser {
         Some((
             Expression {
                 data: exp,
-                typ: Type::default(),
+                ..Default::default()
             },
             end,
         ))

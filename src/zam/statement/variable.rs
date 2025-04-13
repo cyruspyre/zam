@@ -10,7 +10,7 @@ impl Parser {
             ':' => self.typ()?,
             _ => Type::default(),
         };
-        let mut val = if de == '=' || de != ';' && self.expect_char(&['=', ';'])? == '=' {
+        let mut exp = if de == '=' || de != ';' && self.expect_char(&['=', ';'])? == '=' {
             let tmp = self.exp(';', true)?.0;
 
             self.expect_char(&[';'])?;
@@ -20,8 +20,8 @@ impl Parser {
             Default::default()
         };
 
-        val.typ = typ;
+        exp.typ = typ;
 
-        Some(Statement::Variable { name, val, cte })
+        Some(Statement::Variable { name, exp, cte })
     }
 }

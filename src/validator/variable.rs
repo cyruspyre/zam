@@ -6,21 +6,21 @@ use crate::{
         log::{Log, Point},
         Parser,
     },
-    zam::{block::Hoistable, typ::kind::TypeKind},
+    zam::typ::kind::TypeKind,
 };
 
-use super::{identifier::Lookup, Validator};
+use super::{
+    lookup::{Entity, Lookup},
+    Validator,
+};
 
 impl Validator {
-    pub fn variable(&mut self, cur: &mut Parser, var: &mut Hoistable, lookup: &mut Lookup) {
-        let Hoistable::Variable {
-            val: exp, checked, ..
-        } = var
-        else {
+    pub fn variable<'a>(&mut self, cur: &mut Parser, val: Entity<'a>, lookup: &mut Lookup<'a>) {
+        let Entity::Variable(exp) = val else {
             return;
         };
 
-        if *checked {
+        if exp.done {
             return;
         }
 
@@ -41,8 +41,8 @@ impl Validator {
             let (k, v) = res.either();
             let name = 'lol: {
                 let name = match v {
-                    Hoistable::Function { .. } => "function",
-                    Hoistable::Struct { .. } => "struct",
+                    // Entity::Function { .. } => "function",
+                    Entity::Struct { .. } => "struct",
                     _ => break 'lol "",
                 };
                 let tmp = format!("{name} defined here");
@@ -82,8 +82,5 @@ impl Validator {
         }
 
         self.validate_type(cur, exp, lookup);
-        *checked = true;
-
-        // println!("let {id}: {} = {exp}", exp.typ)
     }
 }

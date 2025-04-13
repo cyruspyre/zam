@@ -7,13 +7,15 @@ use crate::{
         Parser,
     },
     zam::{
-        block::Hoistable,
         expression::{term::Term, Expression},
         typ::kind::TypeKind,
     },
 };
 
-use super::{identifier::Lookup, Validator};
+use super::{
+    lookup::{Entity, Lookup},
+    Validator,
+};
 
 impl Validator {
     pub fn validate_type<'a>(
@@ -44,13 +46,13 @@ impl Validator {
                     let res = lookup.bypass().call(id);
                     let mut pnt = Vec::new();
 
-                    if let Some(Ok((_, v))) = res {
+                    if let Some(Ok((_, mut v))) = res {
                         break 'a Cow::Borrowed(match v.bypass() {
                             //Hoistable::VarRef(v) => unsafe { Ok((**v).kind.data.clone()) },
-                            Hoistable::Variable { val, .. } => {
+                            Entity::Variable(exp) => {
                                 self.variable(cur, v, lookup);
-                                num.push(val.typ.kind.data.bypass());
-                                &val.typ.kind.data
+                                num.push(exp.typ.kind.data.bypass());
+                                &exp.typ.kind.data
                             }
                             _ => todo!(),
                         });
@@ -137,6 +139,8 @@ impl Validator {
         for v in num {
             *v = kind.data.clone()
         }
+
+        exp.done = true;
 
         Some(())
     }

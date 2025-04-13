@@ -7,7 +7,7 @@ use crate::parser::Parser;
 pub mod block;
 pub mod expression;
 mod external;
-mod fields;
+pub mod fields;
 pub mod statement;
 pub mod typ;
 

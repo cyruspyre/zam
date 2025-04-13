@@ -10,7 +10,7 @@ use super::{expression::Expression, Block};
 pub enum Statement {
     Variable {
         name: Identifier,
-        val: Expression,
+        exp: Expression,
         cte: bool,
     },
     Conditional {

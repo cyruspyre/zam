@@ -20,10 +20,6 @@ impl Parser {
                 break;
             }
 
-            // if fields.len() > 0 {
-            //     self.expect(&[','])?;
-            // }
-
             let name = self.identifier(true)?;
 
             self.expect_char(&[':'])?;

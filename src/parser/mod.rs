@@ -9,7 +9,7 @@ use log::{Log, Point};
 use misc::{read_file, CharExt};
 use span::{Identifier, Span, ToSpan};
 
-use crate::misc::{Bypass, Either, Result};
+use crate::misc::{Either, Result};
 
 pub enum Context {
     Struct,
