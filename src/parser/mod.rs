@@ -205,7 +205,7 @@ impl Parser {
         let tmp = self.word();
         let mut err = |msg: &str| {
             self.log(
-                &[(self.rng, Point::Error, msg)],
+                &mut [(self.rng, Point::Error, msg)],
                 Log::Error,
                 format!("expected `<identifier>`",),
                 "",
@@ -359,7 +359,12 @@ impl Parser {
         pnt.push(([self.idx, 0], Point::Error, ""));
         // dbg!(&self.de);
 
-        self.log(&pnt, Log::Error, format!("unclosed delimeter `{de}`"), "");
+        self.log(
+            &mut pnt,
+            Log::Error,
+            format!("unclosed delimeter `{de}`"),
+            "",
+        );
 
         None
     }

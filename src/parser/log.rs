@@ -1,7 +1,8 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     io::{stderr, BufWriter, Write},
-    ops::{Add, Sub},
+    ops::Add,
 };
 
 use colored::{Color, Colorize};
@@ -16,7 +17,7 @@ pub enum Log {
     Warning,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Point {
     None,
     Info,
@@ -25,208 +26,196 @@ pub enum Point {
 }
 
 impl Parser {
-    pub fn log<'a, L: Display + AsRef<str>, M: Display + AsRef<str>, N: Display + AsRef<str>>(
+    pub fn log<L, M, N>(
         &mut self,
-        pnt: &'a [([usize; 2], Point, L)],
+        mut pnt: &mut [([usize; 2], Point, L)],
         typ: Log,
         msg: M,
         note: N,
-    ) {
+    ) where
+        L: Display + AsRef<str>,
+        M: Display + AsRef<str>,
+        N: Display + AsRef<str>,
+    {
         if self.ignore {
             return;
         }
 
-        let last_line = self
-            .line
-            .binary_search(&pnt.last().unwrap().0[0])
-            .either()
-            .add(1)
-            .to_string()
-            .len();
-        let pad = " ".repeat(last_line + 1);
-        let border = format!("{pad}- ").black();
-        let mut iter = pnt.into_iter().peekable();
-        let mut io = BufWriter::new(stderr().lock());
-        let mut val: Option<([usize; 2], Color, &str, &'a str)> = match &self.ctx {
-            Some(v) => {
-                // liftime bs ¯\_(ツ)_/¯
-                let tmp = match v.data {
-                    Context::Struct => "while parsing this struct",
-                    Context::Function => "while parsing this function",
-                };
+        if let Log::Error = typ {
+            self.err += 1
+        }
 
-                Some((v.rng, Color::BrightBlue, "-", tmp))
-            }
-            _ => None,
+        pnt.sort_unstable_by_key(|v| v.0[0]);
+
+        let mut io = BufWriter::new(stderr().lock());
+        let mut iter = pnt.bypass().into_iter().peekable();
+        let mut val = if let Some(ctx) = &self.ctx {
+            let name = match **ctx {
+                Context::Struct => "struct",
+                Context::Function => "function",
+            };
+
+            Some((
+                ctx.rng,
+                Point::Info,
+                Cow::<str>::Owned(format!("while parsing this {name}")),
+            ))
+        } else {
+            None
         };
-        let mut tmp = true;
+        let line = |n: usize| {
+            self.line
+                .binary_search(&n)
+                .either()
+                .add(1)
+                .ilog10()
+                .add(1)
+                .try_into()
+                .unwrap()
+        };
+        let pad = line(pnt.last().unwrap().0[0]);
+        let border = format!("{} {}", " ".repeat(pad), "-".black());
+        let typ = match typ {
+            Log::Error => "error".red(),
+            Log::Warning => "warning".bright_yellow(),
+        };
+        let first = pnt[0].0[0];
+        let tmp = self.line.binary_search(&first).either();
+        let buf = format!(
+            "{typ}: {msg}\n{}{} {}:{}:{}\n",
+            " ".repeat(pad),
+            "-->".black(),
+            self.path.display(),
+            tmp + 1,
+            first - self.line.get(tmp.wrapping_sub(1)).unwrap_or(&0),
+        );
+
+        io.write(buf.as_bytes()).unwrap();
 
         loop {
-            let Some((ref mut rng, color, indicator, mut label)) = val else {
-                val = match iter.next() {
-                    Some((a, b, c)) => Some((
-                        *a,
-                        match b {
-                            Point::Warning => Color::BrightYellow,
-                            Point::Info => Color::BrightBlue,
-                            _ => Color::Red,
-                        },
-                        match b {
-                            Point::None => "",
-                            Point::Info => "-",
-                            Point::Error | Point::Warning => "^",
-                        },
-                        c.as_ref(),
-                    )),
-                    _ => break,
+            let Some((rng, pnt, label)) = val else {
+                val = if let Some((rng, pnt, label)) = iter.next() {
+                    Some((
+                        *rng,
+                        *pnt,
+                        Cow::Borrowed(unsafe { &*(label.as_ref() as *const _) }),
+                    ))
+                } else {
+                    break;
                 };
 
                 continue;
             };
-            let idx = rng[0].max(rng[1]);
+            let tmp = rng[0].max(rng[1]);
 
             if match self.line.last() {
                 Some(n) => *n,
                 _ => 0,
-            } < idx
+            } < tmp
             {
-                let tmp = match self.data[idx..].iter().position(|c| *c == '\n') {
-                    Some(n) => idx + n,
+                let tmp = match self.data[tmp..].iter().position(|c| *c == '\n') {
+                    Some(n) => tmp + n,
                     _ => self.data.len(),
                 };
 
                 self.line.push(tmp);
             }
 
-            let idx = self.line.binary_search(&rng[0]).either();
-            let mut start = match self.line.get(idx.wrapping_sub(1)) {
-                Some(v) => v + 1,
+            let tmp = self.line.binary_search(&rng[0]).either();
+            let line = tmp.add(1).to_string().black();
+            let start = match self.line.get(tmp.wrapping_sub(1)) {
+                Some(n) => n + 1,
                 _ => 0,
             };
-            let end = self.line.get(idx).unwrap() - 1;
-            let eof = (rng[0] <= rng[1]) as usize;
-            let line = (idx + 1).to_string().black();
-            let code: String = self.data[start..=end].into_iter().collect();
+            let end = self.line.get(tmp).unwrap() - 1;
+            let code: String = self.data[start..=end].iter().collect();
+            let buf = format!(
+                "{border}\n{line}{} {} {code}\n{border} ",
+                " ".repeat(pad - line.len()),
+                "|".black(),
+            );
 
-            // // skips a blank line
-            // if start > end {
-            //     rng[0] += 1;
-            //     continue;
-            // }
+            io.write(buf.as_bytes()).unwrap();
 
-            if tmp {
-                io.write(
-                    format!(
-                        "{}: {msg}\n{}{} {}:{}:{}\n{border}\n",
-                        match typ {
-                            Log::Error => {
-                                self.err += 1;
-                                "error".red()
-                            }
-                            _ => "warning".bright_yellow(),
-                        },
-                        " ".repeat(last_line),
-                        "-->".black(),
-                        self.path.display(),
-                        idx + 1,
-                        rng[0] - start + 1
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
-                tmp = false;
-            }
+            let mut labels = vec![(1, rng, pnt, label)];
 
-            io.write(
-                format!(
-                    "{line}{} {} {code}\n{border}",
-                    " ".repeat(last_line - line.len()),
-                    "|".black()
-                )
-                .as_bytes(),
-            )
-            .unwrap();
+            while let Some((rng, pnt, label)) = iter.bypass().peek_mut() {
+                let (rng, label) = if end > rng[1] {
+                    let tmp = Cow::Borrowed(unsafe { &*(label.as_ref() as *const _) });
 
-            let mut labels = Vec::with_capacity(pnt.len());
-            loop {
-                io.write(
-                    format!(
-                        "{}{}",
-                        " ".repeat(rng[0] - start + 1 - eof),
-                        indicator.repeat(rng[1].min(end) - rng[0] * eof + 1)
-                    )
-                    .color(color)
-                    .to_string()
-                    .as_bytes(),
-                )
-                .unwrap();
+                    (*rng, tmp)
+                } else if end > rng[0] {
+                    let tmp = *rng;
 
-                match iter.next_if(|v| v.0[0] == v.0[1] && v.0[1] < end) {
-                    Some((ref rng_, _, label_)) => {
-                        if !label.is_empty() {
-                            labels.push((
-                                labels
-                                    .last()
-                                    .map(|v: &(usize, _)| v.0)
-                                    .unwrap_or_default()
-                                    .add(rng[0])
-                                    .sub(start),
-                                label,
-                            ));
-                        }
-
-                        start = rng[1] + 1;
-                        label = label_.as_ref();
-                        *rng = *rng_;
-                    }
-                    _ => {
-                        io.write(format!(" {label}\n").color(color).to_string().as_bytes())
-                            .unwrap();
-                        break;
-                    }
+                    rng[0] = end + 1;
+                    (tmp, Cow::Borrowed(""))
+                } else {
+                    break;
                 };
-            }
 
-            let tmp = labels.bypass();
+                iter.next();
+                labels.push((labels.len() + 1, rng, *pnt, label));
+            }
 
             while labels.len() != 0 {
-                io.write(" ".repeat(border.len()).as_bytes()).unwrap();
+                let mut tmp = start;
 
-                for (i, (pad, label)) in labels.iter().enumerate() {
-                    io.write(
-                        format!("{}| ", " ".repeat(*pad))
-                            .color(color)
-                            .to_string()
-                            .as_bytes(),
-                    )
-                    .unwrap();
+                for (i, rng, pnt, label) in labels.bypass() {
+                    let color = match pnt {
+                        Point::Info => Color::BrightBlue,
+                        Point::Error => Color::Red,
+                        _ => Color::BrightYellow,
+                    };
+                    let pnt_ = match pnt {
+                        _ if rng[0] > rng[1] => "|",
+                        Point::Info => "-",
+                        Point::None => "",
+                        _ => "^",
+                    };
+                    let buf = format!(
+                        "{}{}",
+                        " ".repeat(rng[0].min(rng[1]) - tmp),
+                        pnt_.repeat(rng[1].saturating_sub(rng[0]) + 1).color(color)
+                    );
 
-                    if labels.len() - i == 1 {
-                        io.write(label.color(color).to_string().as_bytes()).unwrap();
-                        tmp.pop();
+                    tmp = rng[1] + 1;
+
+                    if rng[1] > rng[0] {
+                        rng.swap(0, 1);
+                    }
+
+                    io.write(buf.as_bytes()).unwrap();
+
+                    if *i == labels.len() {
+                        let buf = format!(" {}", label.color(color));
+
+                        io.write(buf.as_bytes()).unwrap();
                     }
                 }
 
-                io.write(b"\n").unwrap();
+                labels.pop();
+
+                if labels.len() != 0 {
+                    let buf = format!("\n{}  ", " ".repeat(pad + line.len()));
+
+                    io.write(buf.as_bytes()).unwrap();
+                }
             }
 
-            if iter.peek().is_some() {
-                io.write(format!("{border}\n").as_bytes()).unwrap();
-            }
-
-            if rng[1] > end {
-                *rng = [end + 2, rng[1]];
-                continue;
-            }
-
+            io.write(b"\n").unwrap();
             val = None
         }
 
         if !note.as_ref().is_empty() {
-            let buf = format!("{pad}{} {}: {note}\n", "=".black(), "note".bold());
+            let buf = format!(
+                "{} {} {}: {note}\n",
+                " ".repeat(pad),
+                "=".black(),
+                "note".bold()
+            );
             io.write(buf.as_bytes()).unwrap();
         }
 
-        io.flush().unwrap()
+        io.flush().unwrap();
     }
 }

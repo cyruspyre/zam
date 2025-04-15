@@ -47,7 +47,7 @@ impl TypeKind {
         let Some(pfx) = iter.next() else {
             return None;
         };
-        let mut place = 10u32.pow(id.len() as u32 - 2);
+        let mut place = 10u32.pow(id.len().checked_sub(2).unwrap_or_default() as u32);
         let mut tmp = "size".chars();
         let mut bit = 0;
 

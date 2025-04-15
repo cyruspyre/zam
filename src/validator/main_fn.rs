@@ -31,11 +31,11 @@ impl Validator {
                     },
                 },
             ),
-            _ => ([src.parser.data.len(), 0], Point::Error, ""),
+            _ => ([src.parser.data.len(); 2], Point::Error, ""),
         };
 
         src.parser
-            .log(&[v], Log::Error, "expected `main` function", "");
+            .log(&mut [v], Log::Error, "expected `main` function", "");
 
         None
     }

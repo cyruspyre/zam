@@ -14,9 +14,9 @@ impl Validator {
     pub fn identifier(&mut self) {
         // variables defined in local scope
         let mut var = IndexMap::new();
-        let mut stm = IndexMap::new();
         let mut stack = Vec::with_capacity(self.srcs.len());
         let lookup = &mut Lookup {
+            cur: None,
             var: var.bypass(),
             stack: stack.bypass(),
         };
@@ -25,6 +25,7 @@ impl Validator {
             let cur = &mut src.parser;
             let block = src.block.bypass();
             let dec = &mut block.dec;
+            lookup.cur = Some(cur.bypass());
 
             stack.push(src.block.dec.bypass());
 
@@ -36,7 +37,7 @@ impl Validator {
                     Hoistable::Struct { fields, .. } => {
                         self.r#struct(Entity::Struct(fields), lookup)
                     }
-                    _ => unreachable!(),
+                    _ => todo!(),
                 }
             }
 
@@ -50,9 +51,6 @@ impl Validator {
                 match v {
                     Statement::Variable { name, exp, .. } => {
                         var.insert(name.bypass(), exp.bypass());
-                        // tried using reference without cloning but its too much pain
-                        // the cost of cloning should be negligble
-                        stm.insert(name.clone(), Hoistable::VarRef(&mut exp.typ));
                     }
                     _ => todo!(),
                 }

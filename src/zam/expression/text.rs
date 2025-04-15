@@ -65,7 +65,7 @@ impl Parser {
 
                     if tmp {
                         self.log(
-                            &[(self.rng, Point::Info, "starting here")],
+                            &mut [(self.rng, Point::Info, "starting here")],
                             Log::Error,
                             "unclosed string interpolation",
                             "if you meant to use `{`, escape it using `\\{`",

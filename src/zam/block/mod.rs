@@ -49,7 +49,6 @@ pub enum Hoistable {
         public: bool,
         done: bool,
     },
-    VarRef(*mut Type),
 }
 
 impl Parser {
@@ -118,7 +117,6 @@ impl Parser {
                         Hoistable::Function { public, .. }
                         | Hoistable::Struct { public, .. }
                         | Hoistable::Variable { public, .. } => *public = true,
-                        _ => {}
                     }
                 }
 
@@ -164,9 +162,9 @@ impl Parser {
             });
         }
 
-        for (k, v) in dup {
+        for (k, mut v) in dup {
             self.log(
-                &v,
+                &mut v,
                 Log::Error,
                 &format!("identifier `{k}` declared multiple times"),
                 "",

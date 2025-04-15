@@ -1,9 +1,9 @@
 mod identifier;
+mod lookup;
 mod main_fn;
 mod r#struct;
 mod typ;
 mod variable;
-mod lookup;
 
 use std::collections::HashMap;
 

@@ -8,5 +8,9 @@ impl Validator {
         let Entity::Struct(fields) = val else {
             return;
         };
+
+        for v in fields.values_mut() {
+            lookup.typ(&mut v.kind);
+        }
     }
 }

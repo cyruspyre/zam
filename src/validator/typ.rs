@@ -65,7 +65,7 @@ impl Validator {
                     pnt.push((cur.rng, Point::Error, String::new()));
 
                     cur.log(
-                        &pnt,
+                        &mut pnt,
                         Log::Error,
                         format!("cannot find identifier `{id}`"),
                         "",
@@ -103,7 +103,7 @@ impl Validator {
 
             if *typ != kind {
                 cur.log(
-                    &[(
+                    &mut [(
                         cur.rng,
                         Point::Error,
                         format!("expected `{typ}`, found `{kind}`"),
@@ -122,7 +122,7 @@ impl Validator {
             kind.data = typ.into_owned()
         } else if *typ != kind.data {
             cur.log(
-                &[
+                &mut [
                     (kind.rng, Point::Info, "inferred from here"),
                     (
                         exp.exp_rng(),

@@ -2,17 +2,17 @@ use indexmap::IndexMap;
 
 use crate::parser::{
     log::{Log, Point},
-    span::{Identifier, Span, ToSpan},
+    span::{Identifier, Span},
 };
 
 use super::Parser;
 
-pub type Fields<T> = IndexMap<Identifier, Span<T>>;
+pub type Fields<T> = IndexMap<Identifier, T>;
 
 impl Parser {
     pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Fields<T>> {
         self.ensure_closed(de)?;
-        let mut fields: IndexMap<Span<String>, Span<T>> = IndexMap::new();
+        let mut fields: IndexMap<Span<String>, T> = IndexMap::new();
         let mut dup = IndexMap::new();
 
         loop {
@@ -42,7 +42,7 @@ impl Parser {
                     .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
                     .push((name.rng, Point::Error, ""))
             } else {
-                fields.insert(name, data.span([two, self.idx]));
+                fields.insert(name, data);
             }
 
             if self.expect_char(&[',', de])? == de {
@@ -52,9 +52,9 @@ impl Parser {
 
         self.rng.fill(self.idx);
 
-        for (k, v) in dup {
+        for (k, mut v) in dup {
             self.log(
-                &v,
+                &mut v,
                 Log::Error,
                 &format!("`{k}` declared multiple times"),
                 "",

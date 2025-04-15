@@ -4,15 +4,28 @@ use indexmap::IndexMap;
 use strsim::jaro;
 
 use crate::{
-    misc::{Bypass, Result},
-    parser::span::Span,
-    zam::{block::Hoistable, expression::Expression, fields::Fields, typ::Type},
+    misc::{Bypass, Either, Result},
+    parser::{
+        log::{Log, Point},
+        span::Span,
+        Parser,
+    },
+    zam::{
+        block::Hoistable,
+        expression::Expression,
+        fields::Fields,
+        typ::{kind::TypeKind, Type},
+    },
 };
 
 #[derive(Debug)]
 pub enum Entity<'a> {
     Variable(&'a mut Expression),
     Struct(&'a mut Fields<Type>),
+    Function {
+        arg: &'a mut Fields<Type>,
+        ret: &'a mut Type,
+    },
 }
 
 impl<'a> Entity<'a> {
@@ -20,6 +33,7 @@ impl<'a> Entity<'a> {
         match self {
             Entity::Struct(_) => "struct",
             Entity::Variable(_) => "variable",
+            Entity::Function { .. } => "function",
         }
     }
 }
@@ -29,7 +43,7 @@ impl<'a> From<&'a mut Hoistable> for Entity<'a> {
         match value {
             Hoistable::Variable { exp, .. } => Entity::Variable(exp),
             Hoistable::Struct { fields, .. } => Entity::Struct(fields),
-            _ => unreachable!(),
+            Hoistable::Function { arg, ret, .. } => Entity::Function { arg, ret },
         }
     }
 }
@@ -41,6 +55,7 @@ impl<'a> From<&'a mut Expression> for Entity<'a> {
 }
 
 pub struct Lookup<'a> {
+    pub cur: Option<&'a mut Parser>,
     pub var: &'a mut IndexMap<&'a Span<String>, &'a mut Expression>,
     pub stack: &'a mut Vec<&'a mut IndexMap<Span<String>, Hoistable>>,
 }
@@ -95,5 +110,71 @@ impl<'a> Lookup<'a> {
             0.8..=1.0 => Some(Err(res.1?)),
             _ => None,
         }
+    }
+
+    pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
+        let label = kind.bypass().try_as_number();
+        let cur = self.cur.as_mut().unwrap().bypass();
+
+        cur.rng = kind.rng;
+
+        let TypeKind::ID(id) = &kind.data else {
+            return;
+        };
+        let mut pnt = Vec::new();
+        let Some(res) = self.call(id) else {
+            // ehh try to refactor it
+            cur.log(
+                &mut [(cur.rng, Point::Error, label.unwrap_or_default())],
+                Log::Error,
+                format!("cannot find type `{id}`"),
+                "",
+            );
+            return;
+        };
+        let ok = res.is_ok();
+        let (k, v) = res.either();
+        let name = v.name();
+
+        pnt.push((k.rng, Point::Info, format!("{name} defined here")));
+
+        let recursive = *id == k.data;
+        let msg = if recursive {
+            "recursive type detected without indirections".into()
+        } else if ok {
+            if name.is_empty() {
+                return;
+            }
+
+            format!("expected type, found {name} `{k}`")
+        } else {
+            format!("cannot find type `{id}`")
+        };
+        let label = if let Some(v) = label {
+            v
+        } else if recursive {
+            "creates an infinite-sized type".into()
+        } else {
+            let b = [k.as_str(), "isize", "usize"]
+                .map(|v| (jaro(v, id), v))
+                .into_iter()
+                .max_by(|a, b| jaro(a.1, id).total_cmp(&jaro(b.1, id)))
+                .unwrap();
+
+            if b.0 >= 0.8 && !name.is_empty() {
+                format!("did you mean `{}`?", b.1)
+            } else {
+                "not a type".into()
+            }
+        };
+        let note = match recursive {
+            true => "make it nullable or wrap it in a type that provides indirections",
+            _ => "",
+        };
+
+        pnt.push((kind.rng, Point::Error, label));
+
+        cur.log(&mut pnt, Log::Error, msg, note);
+        return;
     }
 }

@@ -50,10 +50,10 @@ impl Parser {
         msg: S,
     ) -> Option<!> {
         self.log(
-            pnt.into_iter()
+            &mut pnt
+                .into_iter()
                 .map(|v| (*v, Point::Error, ""))
-                .collect::<Vec<_>>()
-                .as_slice(),
+                .collect::<Vec<_>>(),
             Log::Error,
             msg,
             "",
