@@ -2,10 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     misc::Bypass,
-    parser::{
-        log::{Log, Point},
-        Parser,
-    },
+    parser::log::{Log, Point},
     zam::{
         expression::{term::Term, Expression},
         typ::kind::TypeKind,
@@ -18,13 +15,11 @@ use super::{
 };
 
 impl Validator {
-    pub fn validate_type<'a>(
-        &mut self,
-        cur: &mut Parser,
-        exp: &mut Expression,
-        lookup: &mut Lookup,
-    ) -> Option<()> {
+    pub fn validate_type<'a>(&mut self, exp: &mut Expression, lookup: &mut Lookup) -> Option<()> {
+        exp.done = true;
+
         let kind = exp.typ.kind.bypass();
+        let cur = lookup.cur.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.data.iter_mut();
         let mut num = Vec::new();
@@ -48,9 +43,13 @@ impl Validator {
 
                     if let Some(Ok((_, mut v))) = res {
                         break 'a Cow::Borrowed(match v.bypass() {
-                            //Hoistable::VarRef(v) => unsafe { Ok((**v).kind.data.clone()) },
                             Entity::Variable(exp) => {
-                                self.variable(cur, v, lookup);
+                                if exp.done && exp.typ.kind.data == TypeKind::Unknown {
+                                    kind.data = TypeKind::Unknown;
+                                    return None;
+                                }
+
+                                self.variable(v, lookup);
                                 num.push(exp.typ.kind.data.bypass());
                                 &exp.typ.kind.data
                             }
@@ -139,8 +138,6 @@ impl Validator {
         for v in num {
             *v = kind.data.clone()
         }
-
-        exp.done = true;
 
         Some(())
     }

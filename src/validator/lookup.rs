@@ -11,7 +11,7 @@ use crate::{
         Parser,
     },
     zam::{
-        block::Hoistable,
+        block::{Block, Hoistable},
         expression::Expression,
         fields::Fields,
         typ::{kind::TypeKind, Type},
@@ -25,6 +25,7 @@ pub enum Entity<'a> {
     Function {
         arg: &'a mut Fields<Type>,
         ret: &'a mut Type,
+        block: &'a mut Option<Block>,
     },
 }
 
@@ -43,7 +44,9 @@ impl<'a> From<&'a mut Hoistable> for Entity<'a> {
         match value {
             Hoistable::Variable { exp, .. } => Entity::Variable(exp),
             Hoistable::Struct { fields, .. } => Entity::Struct(fields),
-            Hoistable::Function { arg, ret, .. } => Entity::Function { arg, ret },
+            Hoistable::Function {
+                arg, ret, block, ..
+            } => Entity::Function { arg, ret, block },
         }
     }
 }
@@ -55,9 +58,9 @@ impl<'a> From<&'a mut Expression> for Entity<'a> {
 }
 
 pub struct Lookup<'a> {
-    pub cur: Option<&'a mut Parser>,
-    pub var: &'a mut IndexMap<&'a Span<String>, &'a mut Expression>,
-    pub stack: &'a mut Vec<&'a mut IndexMap<Span<String>, Hoistable>>,
+    pub cur: &'a mut Parser,
+    pub var: IndexMap<&'a Span<String>, &'a mut Expression>,
+    pub stack: Vec<&'a mut IndexMap<Span<String>, Hoistable>>,
 }
 
 impl<'a> Lookup<'a> {
@@ -114,7 +117,7 @@ impl<'a> Lookup<'a> {
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
         let label = kind.bypass().try_as_number();
-        let cur = self.cur.as_mut().unwrap().bypass();
+        let cur = self.cur.bypass();
 
         cur.rng = kind.rng;
 

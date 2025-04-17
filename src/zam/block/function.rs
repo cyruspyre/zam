@@ -23,7 +23,7 @@ impl Parser {
         let arg = self.fields(')')?;
         let ret = match self.skip_whitespace() {
             '{' => Type {
-                kind: self.span(TypeKind::ID("()".into())),
+                kind: self.span(TypeKind::Unknown),
                 sub: Vec::new(),
                 ptr: 0,
                 raw: false,

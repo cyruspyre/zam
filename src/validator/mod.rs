@@ -1,4 +1,5 @@
-mod identifier;
+mod block;
+mod fun;
 mod lookup;
 mod main_fn;
 mod r#struct;
@@ -7,7 +8,10 @@ mod variable;
 
 use std::collections::HashMap;
 
-use crate::{cfg::Config, err, zam::Zam};
+use indexmap::IndexMap;
+use lookup::Lookup;
+
+use crate::{cfg::Config, err, misc::Bypass, zam::Zam};
 
 pub struct Validator {
     cfg: Config,
@@ -21,10 +25,16 @@ impl Validator {
 
     pub fn validate(mut self, mut err: usize) {
         self.main_fn();
-        self.identifier();
 
-        for v in self.srcs.values() {
-            err += v.parser.err
+        for src in self.bypass().srcs.values_mut() {
+            let mut lookup = Lookup {
+                cur: &mut src.parser,
+                var: IndexMap::new(),
+                stack: Vec::new(),
+            };
+
+            self.block(&mut src.block, &mut lookup);
+            err += lookup.cur.err;
         }
 
         if err != 0 {
