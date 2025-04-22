@@ -9,7 +9,6 @@ pub trait GroupValue {
 impl Parser {
     pub fn group<T: GroupValue>(&mut self) -> Option<Vec<T>> {
         self.expect(&['('])?;
-        // self.idx += 1;
         self.ensure_closed(')')?;
 
         let mut buf = Vec::new();

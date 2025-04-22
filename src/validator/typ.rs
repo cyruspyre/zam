@@ -28,6 +28,7 @@ impl Validator {
             cur.rng = v.rng;
 
             let mut kind = match v.data.bypass() {
+                Term::Bool(_) => Cow::Owned(TypeKind::Bool),
                 Term::Integer { bit, sign, .. } => Cow::Owned(TypeKind::Integer {
                     bit: *bit,
                     sign: *sign,
@@ -120,19 +121,19 @@ impl Validator {
         if kind.data == TypeKind::Unknown {
             kind.data = typ.into_owned()
         } else if *typ != kind.data {
-            cur.log(
-                &mut [
-                    (kind.rng, Point::Info, "inferred from here"),
-                    (
-                        exp.exp_rng(),
-                        Point::Error,
-                        &format!("expected `{kind}`, found `{typ}`"),
-                    ),
-                ],
-                Log::Error,
-                "type mismatch",
-                "",
-            );
+            let mut pnt = Vec::with_capacity(2);
+
+            if kind.rng[1] != 0 {
+                pnt.push((kind.rng, Point::Info, "inferred from here".into()));
+            }
+
+            pnt.push((
+                exp.exp_rng(),
+                Point::Error,
+                format!("expected `{kind}`, found `{typ}`"),
+            ));
+
+            cur.log(&mut pnt, Log::Error, "type mismatch", "");
         }
 
         for v in num {

@@ -11,7 +11,7 @@ impl Parser {
             _ => Type::default(),
         };
         let mut exp = if de == '=' || de != ';' && self.expect_char(&['=', ';'])? == '=' {
-            let tmp = self.exp(';', true)?.0;
+            let tmp = self.exp([';'], true)?.0;
 
             self.expect_char(&[';'])?;
 

@@ -113,15 +113,12 @@ impl Parser {
             }
         }
 
-        rng[1] = self.idx;
-
         if !ok {
-            rng[1] -= 1;
             self.idx = tmp;
         }
 
         if ok || early {
-            self.rng = rng
+            self.rng = rng;
         }
 
         match ok {
@@ -242,6 +239,8 @@ impl Parser {
                 | "else"
                 | "loop"
                 | "enum"
+                | "true"
+                | "false"
                 | "while"
                 | "struct"
                 | "extern"
@@ -356,8 +355,7 @@ impl Parser {
             pnt.push(([string; 2], Point::Info, &label))
         }
 
-        pnt.push(([self.idx, 0], Point::Error, ""));
-        // dbg!(&self.de);
+        pnt.push(([self.idx + 1; 2], Point::Error, ""));
 
         self.log(
             &mut pnt,

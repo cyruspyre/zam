@@ -73,7 +73,7 @@ impl Parser {
                         return None;
                     }
 
-                    buf.push(WTF::Exp(self.exp('}', true)?.0));
+                    buf.push(WTF::Exp(self.exp(['}'], true)?.0));
                     self.de.pop_back();
                     self.idx += 1;
                     continue;

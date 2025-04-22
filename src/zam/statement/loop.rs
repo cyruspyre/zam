@@ -24,7 +24,7 @@ impl Parser {
 
                 parent_stm.push(Statement::Variable {
                     name: self.span(exp.clone()),
-                    exp: self.exp('{', true)?.0,
+                    exp: self.exp(['{'], true)?.0,
                     cte: false,
                 });
 
@@ -67,7 +67,7 @@ impl Parser {
             }
             "while" => Some(Statement::Conditional {
                 cond: vec![(
-                    Expression::from(arr![Term::Neg, Term::Group(self.exp('{', true)?.0)]),
+                    Expression::from(arr![Term::Neg, Term::Group(self.exp(['{'], true)?.0)]),
                     self._break(),
                 )],
                 default: None,

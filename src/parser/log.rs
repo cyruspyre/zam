@@ -50,16 +50,16 @@ impl Parser {
         let mut io = BufWriter::new(stderr().lock());
         let mut iter = pnt.bypass().into_iter().peekable();
         let mut val = if let Some(ctx) = &self.ctx {
-            let name = match **ctx {
-                Context::Struct => "struct",
-                Context::Function => "function",
-            };
+            let tmp = format!(
+                "while {} this {}",
+                if self.is_eof() { "checking" } else { "parsing" },
+                match **ctx {
+                    Context::Struct => "struct",
+                    Context::Function => "function",
+                }
+            );
 
-            Some((
-                ctx.rng,
-                Point::Info,
-                Cow::<str>::Owned(format!("while parsing this {name}")),
-            ))
+            Some((ctx.rng, Point::Info, Cow::<str>::Owned(tmp)))
         } else {
             None
         };

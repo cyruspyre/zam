@@ -1,3 +1,5 @@
+use crate::zam::typ::kind::TypeKind;
+
 use super::{super::Parser, Statement};
 
 impl Parser {
@@ -6,7 +8,9 @@ impl Parser {
         let mut default = None;
 
         loop {
-            let exp = self.exp('{', true)?.0;
+            let mut exp = self.exp(['{'], true)?.0;
+
+            exp.typ.kind.data = TypeKind::Bool;
 
             let block = self.block(false)?;
             let mut tmp = self.idx;

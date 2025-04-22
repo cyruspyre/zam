@@ -18,6 +18,7 @@ use super::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     None,
+    Bool(bool),
     Integer {
         val: u64,
         /// ## Special Cases
@@ -41,6 +42,10 @@ pub enum Term {
     String {
         data: String,
         byte: bool,
+    },
+    Array {
+        val: Vec<Expression>,
+        len: Option<Expression>,
     },
     Block(Block),
     Group(Expression),

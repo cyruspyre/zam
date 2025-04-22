@@ -144,7 +144,8 @@ impl Parser {
                 _ => {
                     self.idx = stamp;
 
-                    let (exp, used) = self.exp(';', false)?;
+                    let (exp, de) = self.exp([';'], false)?;
+                    let used = de != '\0';
 
                     if used {
                         self._next();

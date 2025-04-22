@@ -6,6 +6,8 @@ use super::{misc::join, Type};
 pub enum TypeKind {
     #[default]
     Unknown,
+    None,
+    Bool,
     Integer {
         bit: u32,
         sign: bool,
@@ -22,9 +24,18 @@ pub enum TypeKind {
 impl Display for TypeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let data = match self {
+            TypeKind::None => "()".into(),
+            TypeKind::Bool => "bool".into(),
             TypeKind::Integer { bit, sign } => match bit {
                 0 => format!("<{}integer>", if *sign { "signed_" } else { "" }),
-                _ => format!("{}{bit}", if *sign { 'i' } else { 'u' }),
+                _ => format!(
+                    "{}{}",
+                    if *sign { 'i' } else { 'u' },
+                    match *bit {
+                        u32::MAX => "size".into(),
+                        _ => bit.to_string(),
+                    },
+                ),
             },
             TypeKind::Float(v) => match v {
                 0 => "<float>".into(),

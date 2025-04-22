@@ -18,7 +18,6 @@ pub enum Statement {
         default: Option<Block>,
     },
     Loop(Block),
-    Block(Block),
     Expression(Expression),
     Break(Identifier),
     Continue(Identifier),

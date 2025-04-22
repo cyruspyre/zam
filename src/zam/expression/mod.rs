@@ -1,3 +1,4 @@
+mod array;
 pub mod group;
 mod number;
 pub mod term;
@@ -48,18 +49,18 @@ impl From<Vec<Span<Term>>> for Expression {
 
 impl FieldValue for Expression {
     fn field_value(src: &mut Parser) -> Option<Self> {
-        Some(src.exp(',', true)?.0)
+        Some(src.exp([','], true)?.0)
     }
 }
 
 impl GroupValue for Expression {
     fn group_value(src: &mut Parser) -> Option<Option<Self>> {
-        let Some((exp, used)) = src.exp(',', false) else {
+        let Some((exp, de)) = src.exp([','], false) else {
             return Some(None);
         };
         let empty = exp.data.is_empty();
 
-        if used {
+        if de != '\0' {
             src.idx += 1
         }
 
@@ -114,9 +115,13 @@ const OP: [(char, Term, &[(char, Term)]); 10] = {
 };
 
 impl Parser {
-    pub fn exp(&mut self, de: char, required: bool) -> Option<(Expression, bool)> {
+    pub fn exp<const N: usize>(
+        &mut self,
+        de: [char; N],
+        required: bool,
+    ) -> Option<(Expression, char)> {
         let mut exp: Vec<Span<_>> = Vec::new();
-        let mut end = false;
+        let mut end = '\0';
         let mut was_op = true;
         let last = match self.de.back() {
             Some(n) => n - 1,
@@ -124,9 +129,11 @@ impl Parser {
         };
 
         while let Some(c) = self._peek() {
-            end = c == de;
+            if de.contains(&c) {
+                end = c;
+            }
 
-            if end || self.idx == last {
+            if end != '\0' || self.idx == last {
                 break;
             }
 
@@ -147,6 +154,13 @@ impl Parser {
                 }
 
                 v
+            } else if c == '(' {
+                let mut tmp = self.group()?;
+                match tmp.len() {
+                    0 => Term::None,
+                    1 => Term::Group(tmp.pop().unwrap()),
+                    _ => Term::Tuple(tmp),
+                }
             } else if c == '{' {
                 match exp.last() {
                     Some(Span {
@@ -158,17 +172,14 @@ impl Parser {
                     }
                     _ => Term::Block(self.block(false)?),
                 }
-            } else if c == '(' {
-                let mut tmp = self.group()?;
-                match tmp.len() {
-                    0 => Term::None,
-                    1 => Term::Group(tmp.pop().unwrap()),
-                    _ => Term::Tuple(tmp),
-                }
+            } else if c == '[' {
+                self.array()?
             } else if c.is_ascii_digit() || c == '-' && was_op {
                 self.num()?
             } else if self.next_if(&["as"]).is_ok() {
                 Term::As(self.typ()?)
+            } else if let Ok(v) = self.next_if(&["true", "false"]) {
+                Term::Bool(v.len() == 4) // "true" has 4 chars
             } else if c.is_quote() || c.is_id() && self.peek_more().is_quote() {
                 self.text()?
             } else if c.is_id() {
@@ -198,7 +209,15 @@ impl Parser {
                     }
 
                     self.rng.fill(self.idx);
-                    self.err_op(false, &[de.to_string().as_str(), "<operator>"])?
+                    let mut op = Vec::with_capacity(de.len() + 1);
+
+                    for c in de {
+                        op.push(c.to_string());
+                    }
+
+                    op.push("<operator>".into());
+
+                    self.err_op(false, &op)?
                 }
             };
 
@@ -250,7 +269,6 @@ impl Parser {
                 }
             }
 
-            // in case of emergency try removing this
             if order[0] != order[1] {
                 break;
             }

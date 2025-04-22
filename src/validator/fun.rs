@@ -14,5 +14,9 @@ impl Validator {
         }
 
         lookup.typ(&mut ret.kind);
+
+        if let Some(v) = block {
+            self.block(v, lookup);
+        }
     }
 }
