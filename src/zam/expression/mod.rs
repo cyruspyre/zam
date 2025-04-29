@@ -145,18 +145,26 @@ impl Parser {
                 }
 
                 v
-            } else if c == '=' && !exp.is_empty() {
+            } else if c == '='
+                && let Some(v) = exp.last()
+                && v.rng[0] == self.idx
+            {
                 is_op = true;
                 self.idx += 1;
 
-                let last = exp.last_mut().unwrap();
-                let kind = match last.data {
+                let kind = match v.data {
                     Term::Add => AssignKind::Add,
                     Term::Sub => AssignKind::Sub,
                     Term::Mul => AssignKind::Mul,
                     Term::Div => AssignKind::Div,
                     _ => AssignKind::Normal,
                 };
+
+                if !matches!(kind, AssignKind::Normal) {
+                    was_op ^= is_op;
+                    ass = true;
+                    exp.pop();
+                }
 
                 if !ass {
                     self.log(
