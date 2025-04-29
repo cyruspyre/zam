@@ -143,6 +143,7 @@ impl Parser {
                 "for" | "loop" | "while" => self.r#loop(stm_ref, tmp)?,
                 _ => {
                     self.idx = stamp;
+                    // self.rng.fill(0); // safe to use this as flag for assignable expression
 
                     let (exp, de) = self.exp([';'], false)?;
                     let used = de != '\0';

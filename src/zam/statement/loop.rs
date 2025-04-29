@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::zam::expression::Expression;
+use crate::zam::expression::{term::AssignKind, Expression};
 
 use super::{
     super::{expression::term::Term, Parser},
@@ -38,7 +38,7 @@ impl Parser {
 
                 stm.push(Statement::Expression(Expression::from(arr![
                     Term::Identifier(nullable.clone()),
-                    Term::Assign,
+                    Term::Assign(AssignKind::Normal),
                     Term::Identifier(exp),
                     Term::Access(false),
                     "next".into(),
@@ -58,7 +58,7 @@ impl Parser {
                         dec: IndexMap::new(),
                         stm: vec![Statement::Expression(Expression::from(arr![
                             Term::Identifier(val),
-                            Term::Assign,
+                            Term::Assign(AssignKind::Normal),
                             Term::Deref,
                             Term::Identifier(nullable),
                         ]))],

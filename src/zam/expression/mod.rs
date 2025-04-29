@@ -1,5 +1,6 @@
 mod array;
 pub mod group;
+pub mod misc;
 mod number;
 pub mod term;
 mod text;
@@ -7,11 +8,13 @@ mod text;
 use std::fmt::Display;
 
 use group::GroupValue;
-use term::Term;
+use misc::Range;
+use term::{AssignKind, Term};
 
 use crate::{
     misc::Bypass,
     parser::{
+        log::{Log, Point},
         misc::CharExt,
         span::{Span, ToSpan},
     },
@@ -24,18 +27,6 @@ pub struct Expression {
     pub data: Vec<Span<Term>>,
     pub typ: Type,
     pub done: bool,
-}
-
-impl Expression {
-    pub fn exp_rng(&self) -> [usize; 2] {
-        let tmp = &self.data;
-
-        if tmp.is_empty() {
-            return [0; 2];
-        }
-
-        [tmp[0].rng[0], tmp.last().unwrap().rng[1]]
-    }
 }
 
 impl From<Vec<Span<Term>>> for Expression {
@@ -89,7 +80,7 @@ const OP: [(char, Term, &[(char, Term)]); 10] = {
     let mut i = 1;
     let mut ops: [(char, Term, &[(char, Term)]); 10] = [
         ('!', Term::Neg, &[('=', Term::Nq)]),
-        ('+', Term::Add, &[('=', Term::AddAssign)]),
+        ('+', Term::Add, &[]),
         ('-', Term::Sub, &[]),
         ('.', Term::Access(false), &[('.', Term::Rng)]),
         ('*', Term::Mul, &[]),
@@ -97,7 +88,7 @@ const OP: [(char, Term, &[(char, Term)]); 10] = {
         ('%', Term::Mod, &[]),
         ('<', Term::Gt, &[('<', Term::Shl), ('=', Term::Le)]),
         ('>', Term::Lt, &[('<', Term::Shr), ('=', Term::Ge)]),
-        ('=', Term::Assign, &[('=', Term::Eq)]),
+        ('=', Term::Assign(AssignKind::Normal), &[('=', Term::Eq)]),
     ];
 
     while i < ops.len() {
@@ -122,6 +113,7 @@ impl Parser {
     ) -> Option<(Expression, char)> {
         let mut exp: Vec<Span<_>> = Vec::new();
         let mut end = '\0';
+        let mut ass = true; // assignable...
         let mut was_op = true;
         let last = match self.de.back() {
             Some(n) => n - 1,
@@ -144,7 +136,6 @@ impl Parser {
 
             let start = self.idx + 1;
             let mut is_op = false;
-            let mut special = true;
             let tmp = if let Some(v) = self.stm_gen()? {
                 if match exp.last() {
                     Some(v) => !matches!(v.data, Term::Identifier(_)),
@@ -154,6 +145,33 @@ impl Parser {
                 }
 
                 v
+            } else if c == '=' && !exp.is_empty() {
+                is_op = true;
+                self.idx += 1;
+
+                let last = exp.last_mut().unwrap();
+                let kind = match last.data {
+                    Term::Add => AssignKind::Add,
+                    Term::Sub => AssignKind::Sub,
+                    Term::Mul => AssignKind::Mul,
+                    Term::Div => AssignKind::Div,
+                    _ => AssignKind::Normal,
+                };
+
+                if !ass {
+                    self.log(
+                        &mut [
+                            (exp.rng(), Point::Info, "cannot assign to this expression"),
+                            ([self.idx; 2], Point::Error, ""),
+                        ],
+                        Log::Error,
+                        "invalid assignment operation",
+                        "",
+                    );
+                    return None;
+                }
+
+                Term::Assign(kind)
             } else if c == '(' {
                 let mut tmp = self.group()?;
                 match tmp.len() {
@@ -197,14 +215,9 @@ impl Parser {
                             break 'one v.2[j].1.clone();
                         }
 
-                        special = false;
-
                         break 'one match v.1.clone() {
                             Term::Mul if was_op => Term::Deref,
-                            v => {
-                                special = true;
-                                v
-                            }
+                            v => v,
                         };
                     }
 
@@ -220,11 +233,13 @@ impl Parser {
                     self.err_op(false, &op)?
                 }
             };
+            let special = !matches!(tmp, Term::Deref | Term::Neg);
 
             self.rng = [start, self.idx];
             is_op |= tmp == Term::Sub;
+            ass &= matches!(tmp, Term::Deref | Term::Identifier(_));
 
-            if special && is_op == was_op && exp.len() != 0 {
+            if special && is_op == was_op {
                 let msg = format!(
                     "expected {}",
                     match was_op {

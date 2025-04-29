@@ -138,6 +138,7 @@ impl Parser {
             io.write(buf.as_bytes()).unwrap();
 
             let mut labels = vec![(1, rng, pnt, label)];
+            let mut flag = false;
 
             while let Some((rng, pnt, label)) = iter.bypass().peek_mut() {
                 let (rng, label) = if end > rng[1] {
@@ -167,7 +168,7 @@ impl Parser {
                         _ => Color::BrightYellow,
                     };
                     let pnt_ = match pnt {
-                        _ if rng[0] > rng[1] => "|",
+                        _ if flag => "|",
                         Point::Info => "-",
                         Point::None => "",
                         _ => "^",
@@ -193,6 +194,7 @@ impl Parser {
                     }
                 }
 
+                flag = true;
                 labels.pop();
 
                 if labels.len() != 0 {

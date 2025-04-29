@@ -1,8 +1,11 @@
 use indexmap::IndexMap;
 
-use crate::parser::{
-    log::{Log, Point},
-    span::Span,
+use crate::{
+    parser::{
+        log::{Log, Point},
+        span::Span,
+    },
+    zam::expression::term::AssignKind,
 };
 
 use super::{
@@ -123,7 +126,10 @@ impl Parser {
             }];
 
             for v in buf {
-                let mut exp = Expression::from(arr![Term::Identifier("0".into()), Term::AddAssign]);
+                let mut exp = Expression::from(arr![
+                    Term::Identifier("0".into()),
+                    Term::Assign(AssignKind::Add)
+                ]);
                 let tmp: &[Span<Term>] = match v {
                     WTF::Buf(data) => &self.lol([Term::String { data, byte }]),
                     WTF::Exp(v) => &self.lol([

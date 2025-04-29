@@ -4,7 +4,7 @@ use crate::{
     misc::Bypass,
     parser::log::{Log, Point},
     zam::{
-        expression::{term::Term, Expression},
+        expression::{misc::Range, term::Term, Expression},
         typ::kind::TypeKind,
     },
 };
@@ -128,7 +128,7 @@ impl Validator {
             }
 
             pnt.push((
-                exp.exp_rng(),
+                exp.data.rng(),
                 Point::Error,
                 format!("expected `{kind}`, found `{typ}`"),
             ));

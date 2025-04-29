@@ -15,6 +15,15 @@ use super::{
     Expression, Parser,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AssignKind {
+    Normal,
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     None,
@@ -55,13 +64,12 @@ pub enum Term {
     Identifier(String),
     Access(bool),
     Rng,
-    Assign,
+    Assign(AssignKind),
     Null,
     Ref,
     Deref,
     Neg,
     Add,
-    AddAssign,
     Sub,
     Mul,
     Div,
