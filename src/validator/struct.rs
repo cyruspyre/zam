@@ -1,16 +1,14 @@
 use crate::{
     misc::Bypass,
     parser::{span::ToSpan, Context},
+    zam::Entity,
 };
 
-use super::{
-    lookup::{Entity, Lookup},
-    Validator,
-};
+use super::{lookup::Lookup, Validator};
 
 impl Validator {
-    pub fn r#struct<'a>(&mut self, val: Entity<'a>, lookup: &mut Lookup<'a>) {
-        let Entity::Struct(fields) = val else {
+    pub fn r#struct<'a>(&mut self, val: &mut Entity, lookup: &mut Lookup<'a>) {
+        let Entity::Struct { fields, .. } = val else {
             return;
         };
         let cur = lookup.cur.bypass();

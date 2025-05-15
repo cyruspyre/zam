@@ -2,7 +2,7 @@ use strsim::jaro;
 
 use crate::{
     parser::log::{Log, Point},
-    zam::block::Hoistable,
+    zam::Entity,
 };
 
 use super::Validator;
@@ -21,7 +21,7 @@ impl Validator {
                 rng,
                 Point::Info,
                 match data {
-                    Hoistable::Function { .. } => match sim {
+                    Entity::Function { .. } => match sim {
                         1.0 => return Some(()),
                         _ => "did you mean `main`?",
                     },

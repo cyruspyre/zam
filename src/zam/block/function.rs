@@ -2,13 +2,16 @@ use indexmap::IndexMap;
 
 use crate::{
     parser::span::Identifier,
-    zam::typ::{kind::TypeKind, Type},
+    zam::{
+        typ::{kind::TypeKind, Type},
+        Entity,
+    },
 };
 
-use super::{Hoistable, Parser};
+use super::Parser;
 
 impl Parser {
-    pub fn fun(&mut self) -> Option<(Identifier, Hoistable)> {
+    pub fn fun(&mut self) -> Option<(Identifier, Entity)> {
         let name = self.identifier(true)?;
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
@@ -37,12 +40,11 @@ impl Parser {
 
         Some((
             name,
-            Hoistable::Function {
+            Entity::Function {
                 arg,
                 gen,
                 ret,
                 block: Some(self.block(false)?),
-                public: false,
             },
         ))
     }

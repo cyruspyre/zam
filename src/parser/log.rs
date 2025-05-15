@@ -49,20 +49,7 @@ impl Parser {
 
         let mut io = BufWriter::new(stderr().lock());
         let mut iter = pnt.bypass().into_iter().peekable();
-        let mut val = if let Some(ctx) = &self.ctx {
-            let tmp = format!(
-                "while {} this {}",
-                if self.is_eof() { "checking" } else { "parsing" },
-                match **ctx {
-                    Context::Struct => "struct",
-                    Context::Function => "function",
-                }
-            );
-
-            Some((ctx.rng, Point::Info, Cow::<str>::Owned(tmp)))
-        } else {
-            None
-        };
+        let mut val = None;
         let line = |n: usize| {
             self.line
                 .binary_search(&n)
@@ -89,19 +76,37 @@ impl Parser {
             tmp + 1,
             first - self.line.get(tmp.wrapping_sub(1)).unwrap_or(&0),
         );
+        let mut tmp = true;
 
         io.write(buf.as_bytes()).unwrap();
 
         loop {
             let Some((rng, pnt, label)) = val else {
-                val = if let Some((rng, pnt, label)) = iter.next() {
+                let Some((rng, pnt, label)) = iter.bypass().peek() else {
+                    break;
+                };
+
+                val = if tmp
+                    && let Some(ctx) = &self.ctx
+                    && ctx.rng[0] < rng[0]
+                {
+                    tmp = false;
+                    let msg = Cow::Owned(format!(
+                        "{} this {}",
+                        if self.is_eof() { "in" } else { "while parsing" },
+                        match **ctx {
+                            Context::Struct => "struct",
+                            Context::Function => "function",
+                        }
+                    ));
+                    Some((ctx.rng, Point::Info, msg))
+                } else {
+                    iter.next();
                     Some((
                         *rng,
                         *pnt,
                         Cow::Borrowed(unsafe { &*(label.as_ref() as *const _) }),
                     ))
-                } else {
-                    break;
                 };
 
                 continue;
@@ -179,7 +184,7 @@ impl Parser {
                         pnt_.repeat(rng[1].saturating_sub(rng[0]) + 1).color(color)
                     );
 
-                    tmp = rng[1] + 1;
+                    tmp = rng[1] + *i;
 
                     if rng[1] > rng[0] {
                         rng.swap(0, 1);
@@ -191,6 +196,10 @@ impl Parser {
                         let buf = format!(" {}", label.color(color));
 
                         io.write(buf.as_bytes()).unwrap();
+                    }
+
+                    if label.is_empty() {
+                        labels.pop();
                     }
                 }
 
@@ -205,7 +214,7 @@ impl Parser {
             }
 
             io.write(b"\n").unwrap();
-            val = None
+            val = None;
         }
 
         if !note.as_ref().is_empty() {

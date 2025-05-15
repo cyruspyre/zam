@@ -4,9 +4,9 @@ use crate::{
     cfg::Config,
     parser::span::Span,
     zam::{
-        block::Hoistable,
         statement::Statement,
         typ::{kind::TypeKind, Type},
+        Entity,
     },
 };
 
@@ -65,6 +65,7 @@ pub enum Term {
     Access(bool),
     Rng,
     Assign(AssignKind),
+    As(Type),
     Null,
     Ref,
     Deref,
@@ -76,13 +77,16 @@ pub enum Term {
     Mod,
     Shl,
     Shr,
-    As(Type),
+    BitOr,
+    BitAnd,
     Eq,
     Nq,
     Lt,
     Gt,
     Le,
     Ge,
+    Or,
+    And,
 }
 
 impl Term {
@@ -173,17 +177,18 @@ impl Display for Term {
                 true => format!("{:?}", data.as_bytes()),
                 _ => format!("{data:?}"),
             },
-            Term::Block(Block { dec, stm }) => {
+            Term::Block(Block { dec, stm, public }) => {
                 let mut buf = Vec::with_capacity(dec.len() + stm.len());
 
-                for (k, v) in dec {
+                for (i, (k, v)) in dec.iter().enumerate() {
                     let tmp = match v {
-                        Hoistable::Variable {
-                            exp, cte, public, ..
-                        } => {
+                        Entity::Variable { exp, cte, .. } => {
                             format!(
                                 "{}{} {k}{}{};",
-                                if *public { "pub " } else { "" },
+                                match public.binary_search(&i).is_ok() {
+                                    true => "pub ",
+                                    _ => "",
+                                },
                                 if *cte { "cte" } else { "let" },
                                 match &exp.typ.kind.data {
                                     TypeKind::Unknown => String::new(),
@@ -207,9 +212,12 @@ impl Display for Term {
 
                 for v in stm {
                     let tmp = match v {
-                        Statement::Variable { name, exp, cte } => {
+                        Statement::Variable {
+                            id,
+                            data: Entity::Variable { exp, cte, .. },
+                        } => {
                             format!(
-                                "{} {name}{}{};",
+                                "{} {id}{}{};",
                                 if *cte { "cte" } else { "let" },
                                 match &exp.typ.kind.data {
                                     TypeKind::Unknown => String::new(),

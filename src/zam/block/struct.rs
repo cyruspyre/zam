@@ -1,14 +1,17 @@
 use indexmap::IndexMap;
 
-use crate::parser::{
-    span::{Identifier, ToSpan},
-    Context,
+use crate::{
+    parser::{
+        span::{Identifier, ToSpan},
+        Context,
+    },
+    zam::Entity,
 };
 
-use super::{Hoistable, Parser};
+use super::Parser;
 
 impl Parser {
-    pub fn strukt(&mut self) -> Option<(Identifier, Hoistable)> {
+    pub fn strukt(&mut self) -> Option<(Identifier, Entity)> {
         let name = self.identifier(true)?;
         let de = self.expect_char(&['<', '{'])?;
         let gen = match de {
@@ -24,13 +27,6 @@ impl Parser {
         let fields = self.fields('}')?;
         self.ctx = None;
 
-        Some((
-            name,
-            Hoistable::Struct {
-                gen,
-                fields,
-                public: false,
-            },
-        ))
+        Some((name, Entity::Struct { gen, fields }))
     }
 }

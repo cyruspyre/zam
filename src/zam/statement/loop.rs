@@ -1,6 +1,7 @@
-use indexmap::IndexMap;
-
-use crate::zam::expression::{term::AssignKind, Expression};
+use crate::zam::{
+    expression::{term::AssignKind, Expression},
+    Entity,
+};
 
 use super::{
     super::{expression::term::Term, Parser},
@@ -23,16 +24,22 @@ impl Parser {
                 self.expect(&["in"])?;
 
                 parent_stm.push(Statement::Variable {
-                    name: self.span(exp.clone()),
-                    exp: self.exp(['{'], true)?.0,
-                    cte: false,
+                    id: self.span(exp.clone()),
+                    data: Entity::Variable {
+                        exp: self.exp(['{'], true)?.0,
+                        cte: false,
+                        done: false,
+                    },
                 });
 
                 for ele in [val.clone(), nullable.clone()] {
                     parent_stm.push(Statement::Variable {
-                        name: self.span(ele),
-                        exp: Default::default(),
-                        cte: false,
+                        id: self.span(ele),
+                        data: Entity::Variable {
+                            exp: Default::default(),
+                            cte: false,
+                            done: false,
+                        },
                     });
                 }
 
@@ -55,13 +62,13 @@ impl Parser {
                         self._break(),
                     )],
                     default: Some(Block {
-                        dec: IndexMap::new(),
                         stm: vec![Statement::Expression(Expression::from(arr![
                             Term::Identifier(val),
                             Term::Assign(AssignKind::Normal),
                             Term::Deref,
                             Term::Identifier(nullable),
                         ]))],
+                        ..Default::default()
                     }),
                 })
             }
@@ -82,8 +89,8 @@ impl Parser {
 
     fn _break(&self) -> Block {
         Block {
-            dec: IndexMap::new(),
             stm: vec![Statement::Break(self.span(String::new()))],
+            ..Default::default()
         }
     }
 }

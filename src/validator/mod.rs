@@ -1,12 +1,10 @@
 mod block;
 mod fun;
-mod lookup;
+pub mod lookup;
 mod main_fn;
 mod r#struct;
 mod typ;
 mod variable;
-
-use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use lookup::Lookup;
@@ -15,11 +13,11 @@ use crate::{cfg::Config, err, misc::Bypass, zam::Zam};
 
 pub struct Validator {
     cfg: Config,
-    srcs: HashMap<String, Zam>,
+    srcs: IndexMap<String, Zam>,
 }
 
 impl Validator {
-    pub fn new(cfg: Config, srcs: HashMap<String, Zam>) -> Self {
+    pub fn new(cfg: Config, srcs: IndexMap<String, Zam>) -> Self {
         Self { cfg, srcs }
     }
 

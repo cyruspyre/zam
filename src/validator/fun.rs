@@ -1,11 +1,13 @@
-use super::{
-    lookup::{Entity, Lookup},
-    Validator,
-};
+use crate::zam::Entity;
+
+use super::{lookup::Lookup, Validator};
 
 impl Validator {
-    pub fn fun(&mut self, val: Entity, lookup: &mut Lookup) {
-        let Entity::Function { arg, ret, block } = val else {
+    pub fn fun(&mut self, val: &mut Entity, lookup: &mut Lookup) {
+        let Entity::Function {
+            arg, ret, block, ..
+        } = val
+        else {
             return;
         };
 
@@ -15,7 +17,7 @@ impl Validator {
 
         lookup.typ(&mut ret.kind);
 
-        if let Some(v) = block {
+        if let Some(v) = &mut *block {
             self.block(v, lookup);
         }
     }

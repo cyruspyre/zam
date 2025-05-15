@@ -76,9 +76,9 @@ impl Display for Expression {
     }
 }
 
-const OP: [(char, Term, &[(char, Term)]); 10] = {
+const OP: [(char, Term, &[(char, Term)]); 12] = {
     let mut i = 1;
-    let mut ops: [(char, Term, &[(char, Term)]); 10] = [
+    let mut ops: [(char, Term, &[(char, Term)]); 12] = [
         ('!', Term::Neg, &[('=', Term::Nq)]),
         ('+', Term::Add, &[]),
         ('-', Term::Sub, &[]),
@@ -86,6 +86,8 @@ const OP: [(char, Term, &[(char, Term)]); 10] = {
         ('*', Term::Mul, &[]),
         ('/', Term::Div, &[]),
         ('%', Term::Mod, &[]),
+        ('|', Term::BitOr, &[('|', Term::Or)]),
+        ('&', Term::BitAnd, &[('&', Term::And)]),
         ('<', Term::Gt, &[('<', Term::Shl), ('=', Term::Le)]),
         ('>', Term::Lt, &[('<', Term::Shr), ('=', Term::Ge)]),
         ('=', Term::Assign(AssignKind::Normal), &[('=', Term::Eq)]),
@@ -224,6 +226,7 @@ impl Parser {
                         }
 
                         break 'one match v.1.clone() {
+                            Term::BitAnd if was_op => Term::Ref,
                             Term::Mul if was_op => Term::Deref,
                             v => v,
                         };
@@ -241,7 +244,11 @@ impl Parser {
                     self.err_op(false, &op)?
                 }
             };
-            let special = !matches!(tmp, Term::Deref | Term::Neg);
+            println!("{tmp:?}");
+            let special = !matches!(
+                tmp,
+                Term::Ref | Term::Deref | Term::Neg | Term::As(_) | Term::Struct(_)
+            );
 
             self.rng = [start, self.idx];
             is_op |= tmp == Term::Sub;
@@ -267,6 +274,8 @@ impl Parser {
             self.err_op(true, &["<expression>"])?
         }
 
+        // todo: move the operator precedence somewhere else to perform it after validating only
+
         let mut order = [2, 0];
         let mut index = [0; 3];
         let exp_mut = exp.bypass();
@@ -278,7 +287,7 @@ impl Parser {
             if let Some((n, v)) = one {
                 index[2] = n;
                 let tmp = match **v {
-                    Term::Div => 2,
+                    Term::Mul | Term::Div | Term::Eq | Term::Nq => 2,
                     Term::Add | Term::Sub => 1,
                     _ => continue,
                 };

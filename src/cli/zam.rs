@@ -1,4 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
+
+use indexmap::IndexMap;
 
 use crate::{cfg::Config, err, validator::Validator, zam::Zam};
 
@@ -16,7 +18,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
     path.push("src");
 
     let mut stack = vec![path.clone()];
-    let mut srcs = HashMap::new();
+    let mut srcs = IndexMap::new();
     let mut err = 0;
 
     while let Some(v) = stack.pop() {

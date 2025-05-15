@@ -10,66 +10,22 @@ use crate::{
         span::Span,
         Parser,
     },
-    zam::{
-        block::{Block, Hoistable},
-        expression::Expression,
-        fields::Fields,
-        typ::{kind::TypeKind, Type},
-    },
+    zam::{typ::kind::TypeKind, Entity},
 };
-
-#[derive(Debug)]
-pub enum Entity<'a> {
-    Variable(&'a mut Expression),
-    Struct(&'a mut Fields<Type>),
-    Function {
-        arg: &'a mut Fields<Type>,
-        ret: &'a mut Type,
-        block: &'a mut Option<Block>,
-    },
-}
-
-impl<'a> Entity<'a> {
-    pub fn name(&self) -> &str {
-        match self {
-            Entity::Struct(_) => "struct",
-            Entity::Variable(_) => "variable",
-            Entity::Function { .. } => "function",
-        }
-    }
-}
-
-impl<'a> From<&'a mut Hoistable> for Entity<'a> {
-    fn from(value: &'a mut Hoistable) -> Self {
-        match value {
-            Hoistable::Variable { exp, .. } => Entity::Variable(exp),
-            Hoistable::Struct { fields, .. } => Entity::Struct(fields),
-            Hoistable::Function {
-                arg, ret, block, ..
-            } => Entity::Function { arg, ret, block },
-        }
-    }
-}
-
-impl<'a> From<&'a mut Expression> for Entity<'a> {
-    fn from(value: &'a mut Expression) -> Self {
-        Entity::Variable(value)
-    }
-}
 
 pub struct Lookup<'a> {
     pub cur: &'a mut Parser,
-    pub var: IndexMap<&'a Span<String>, &'a mut Expression>,
-    pub stack: Vec<&'a mut IndexMap<Span<String>, Hoistable>>,
+    pub var: IndexMap<&'a Span<String>, &'a mut Entity>,
+    pub stack: Vec<&'a mut IndexMap<Span<String>, Entity>>,
 }
 
 impl<'a> Lookup<'a> {
-    pub fn call(&mut self, id: &String) -> Option<Result<(&Span<String>, Entity)>> {
+    pub fn call(&mut self, id: &String) -> Option<Result<(&Span<String>, &mut Entity)>> {
         if let Some((_, k, v)) = self.var.bypass().get_full_mut(id) {
             return Some(Ok((*k, v.deref_mut().into())));
         }
 
-        let mut one = self.var.iter_mut().map(|(k, v)| (*k, v.deref_mut().into()));
+        let mut one = self.var.iter_mut().map(|(k, v)| (*k, v.deref_mut()));
         let mut two = VecDeque::new();
 
         for dec in self.stack.deref_mut() {
@@ -77,10 +33,10 @@ impl<'a> Lookup<'a> {
                 return Some(Ok((k, v.into())));
             }
 
-            two.push_back(dec.iter_mut().map(|(k, v)| (k, Entity::from(v))));
+            two.push_back(dec.iter_mut().map(|(k, v)| (k, v)));
         }
 
-        let mut res: (f64, Option<(&Span<String>, Entity)>) = (0.0, None);
+        let mut res: (f64, Option<(&Span<String>, &mut Entity)>) = (0.0, None);
         let mut tmp = None;
 
         loop {
@@ -116,16 +72,28 @@ impl<'a> Lookup<'a> {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let label = kind.bypass().try_as_number();
         let cur = self.cur.bypass();
 
         cur.rng = kind.rng;
 
-        let TypeKind::ID(id) = &kind.data else {
+        let TypeKind::ID(id) = kind.data.bypass() else {
             return;
         };
+        let res = self.call(id);
+        let mut label = None;
+
+        if matches!(res, None | Some(Err(_)))
+            && {
+                label = kind.try_as_number();
+                label.is_none()
+            }
+            && !matches!(kind.data, TypeKind::ID(_))
+        {
+            return;
+        }
+
         let mut pnt = Vec::new();
-        let Some(res) = self.call(id) else {
+        let Some(res) = res else {
             // ehh try to refactor it
             cur.log(
                 &mut [(cur.rng, Point::Error, label.unwrap_or_default())],
@@ -137,7 +105,14 @@ impl<'a> Lookup<'a> {
         };
         let ok = res.is_ok();
         let (k, v) = res.either();
-        let name = v.name();
+        let name = match v {
+            Entity::Variable { .. } => "variable",
+            Entity::Function { .. } => "function",
+            Entity::Struct { .. } if ok => {
+                return todo!(); // kind.data = TypeKind::Dec(v);
+            }
+            _ => todo!(),
+        };
 
         pnt.push((k.rng, Point::Info, format!("{name} defined here")));
 
@@ -145,10 +120,6 @@ impl<'a> Lookup<'a> {
         let msg = if recursive {
             "recursive type detected without indirections".into()
         } else if ok {
-            if name.is_empty() {
-                return;
-            }
-
             format!("expected type, found {name} `{k}`")
         } else {
             format!("cannot find type `{id}`")
@@ -177,7 +148,6 @@ impl<'a> Lookup<'a> {
 
         pnt.push((kind.rng, Point::Error, label));
 
-        cur.log(&mut pnt, Log::Error, msg, note);
-        return;
+        return cur.log(&mut pnt, Log::Error, msg, note);
     }
 }

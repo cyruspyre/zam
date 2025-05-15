@@ -1,11 +1,9 @@
-use indexmap::IndexMap;
-
 use crate::{
     parser::{
         log::{Log, Point},
         span::Span,
     },
-    zam::expression::term::AssignKind,
+    zam::{expression::term::AssignKind, Entity},
 };
 
 use super::{
@@ -110,19 +108,22 @@ impl Parser {
             }
 
             let mut stm = vec![Statement::Variable {
-                name: self.span("0".into()),
-                exp: Expression::from(arr![
-                    Term::Identifier("String".into()),
-                    Term::Access(true),
-                    Term::Identifier("with_capacity".into()),
-                    Term::Tuple(vec![Expression::from(arr![Term::Integer {
-                        val: size,
-                        bit: 64,
-                        neg: false,
-                        sign: false,
-                    }])]),
-                ]),
-                cte: false,
+                id: self.span("0".into()),
+                data: Entity::Variable {
+                    exp: Expression::from(arr![
+                        Term::Identifier("String".into()),
+                        Term::Access(true),
+                        Term::Identifier("with_capacity".into()),
+                        Term::Tuple(vec![Expression::from(arr![Term::Integer {
+                            val: size,
+                            bit: 64,
+                            neg: false,
+                            sign: false,
+                        }])]),
+                    ]),
+                    cte: false,
+                    done: false,
+                },
             }];
 
             for v in buf {
@@ -145,8 +146,8 @@ impl Parser {
             }
 
             return Some(Term::Block(Block {
-                dec: IndexMap::new(),
                 stm,
+                ..Default::default()
             }));
         }
 

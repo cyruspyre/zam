@@ -11,44 +11,13 @@ use crate::{
     },
 };
 
-use super::{
-    expression::Expression,
-    fields::Fields,
-    statement::Statement,
-    typ::{generic::Generic, Type},
-    Parser,
-};
+use super::{statement::Statement, Entity, Parser};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
-    pub dec: IndexMap<Identifier, Hoistable>,
+    pub public: Vec<usize>,
+    pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
-}
-
-/// Similar to `Statement`, but with declarations that are hoisted.
-///
-/// All the fields are applicable to both global and local scope.
-/// Except for `Variable`, which is to be used in global scope only.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Hoistable {
-    Function {
-        arg: Fields<Type>,
-        gen: Generic,
-        ret: Type,
-        block: Option<Block>,
-        public: bool,
-    },
-    Struct {
-        gen: Generic,
-        fields: Fields<Type>,
-        public: bool,
-    },
-    Variable {
-        exp: Expression,
-        cte: bool,
-        public: bool,
-        done: bool,
-    },
 }
 
 impl Parser {
@@ -65,6 +34,7 @@ impl Parser {
         let mut dup = IndexMap::new();
         let mut flag = true;
         let mut dec: IndexMap<Identifier, _> = IndexMap::new();
+        let mut public = Vec::new();
         let stm_ref = stm.bypass();
         let de = match self.de.back() {
             Some(n) => n - 1,
@@ -87,19 +57,11 @@ impl Parser {
             }
 
             'two: {
-                let (k, mut v) = match tmp {
+                let (k, v) = match tmp {
                     "fn" => self.fun()?,
                     "struct" => self.strukt()?,
                     "let" | "cte" if global => match self.var(tmp == "cte")? {
-                        Statement::Variable { name, exp, cte } => (
-                            name,
-                            Hoistable::Variable {
-                                exp,
-                                cte,
-                                public: false,
-                                done: false,
-                            },
-                        ),
+                        Statement::Variable { id, data } => (id, data),
                         _ => unreachable!(),
                     },
                     // "use" => ,
@@ -113,11 +75,7 @@ impl Parser {
 
                 if flag {
                     flag = false;
-                    match &mut v {
-                        Hoistable::Function { public, .. }
-                        | Hoistable::Struct { public, .. }
-                        | Hoistable::Variable { public, .. } => *public = true,
-                    }
+                    public.push(dec.len());
                 }
 
                 if let Some((prev, _)) = dec.get_key_value(&k) {
@@ -173,6 +131,6 @@ impl Parser {
             );
         }
 
-        Some(Block { dec, stm })
+        Some(Block { dec, stm, public })
     }
 }

@@ -1,10 +1,10 @@
-use crate::zam::typ::Type;
+use crate::zam::{typ::Type, Entity};
 
 use super::{super::Parser, Statement};
 
 impl Parser {
     pub fn var(&mut self, cte: bool) -> Option<Statement> {
-        let name = self.identifier(true)?;
+        let id = self.identifier(true)?;
         let de = self.expect_char(&[':', '=', ';'])?;
         let typ = match de {
             ':' => self.typ()?,
@@ -22,6 +22,13 @@ impl Parser {
 
         exp.typ = typ;
 
-        Some(Statement::Variable { name, exp, cte })
+        Some(Statement::Variable {
+            id,
+            data: Entity::Variable {
+                exp,
+                cte,
+                done: false,
+            },
+        })
     }
 }

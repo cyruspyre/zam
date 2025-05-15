@@ -4,14 +4,13 @@ mod variable;
 
 use crate::parser::span::Identifier;
 
-use super::{expression::Expression, Block};
+use super::{expression::Expression, Block, Entity};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Variable {
-        name: Identifier,
-        exp: Expression,
-        cte: bool,
+        id: Identifier,
+        data: Entity,
     },
     Conditional {
         cond: Vec<(Expression, Block)>,

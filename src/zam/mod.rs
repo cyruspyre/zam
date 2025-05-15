@@ -1,6 +1,9 @@
 use std::{env::current_dir, path::PathBuf};
 
 use block::Block;
+use expression::Expression;
+use fields::Fields;
+use typ::{generic::Generic, Type};
 
 use crate::parser::Parser;
 
@@ -14,6 +17,35 @@ pub mod typ;
 pub struct Zam {
     pub parser: Parser,
     pub block: Block,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Entity {
+    Function {
+        arg: Fields<Type>,
+        gen: Generic,
+        ret: Type,
+        block: Option<Block>,
+    },
+    Struct {
+        gen: Generic,
+        fields: Fields<Type>,
+    },
+    Variable {
+        exp: Expression,
+        cte: bool,
+        done: bool,
+    },
+}
+
+impl Entity {
+    pub fn name(&self) -> &str {
+        match self {
+            Entity::Struct { .. } => "struct",
+            Entity::Variable { .. } => "variable",
+            Entity::Function { .. } => "function",
+        }
+    }
 }
 
 impl Zam {
