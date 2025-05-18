@@ -74,10 +74,10 @@ impl Validator {
                 }
             };
 
-            if lol(typ, &kind) {
+            if coercible(typ, &kind) {
                 *typ = kind;
                 continue;
-            } else if lol(&kind, typ) {
+            } else if coercible(&kind, typ) {
                 continue;
             }
 
@@ -108,7 +108,7 @@ impl Validator {
 
         let typ = typ?;
 
-        if lol(&typ, &Cow::Borrowed(&kind.data)) {
+        if coercible(&typ, &Cow::Borrowed(&kind.data)) {
             return Some(());
         }
 
@@ -134,7 +134,7 @@ impl Validator {
     }
 }
 
-fn lol<'a>(a: &Cow<TypeKind>, b: &Cow<TypeKind>) -> bool {
+fn coercible<'a>(a: &Cow<TypeKind>, b: &Cow<TypeKind>) -> bool {
     match a.as_ref() {
         TypeKind::Float(0) if matches!(b.as_ref(), TypeKind::Float(v) if *v != 0) => {}
         TypeKind::Integer {
