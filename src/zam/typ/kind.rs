@@ -1,5 +1,10 @@
 use std::{fmt::Display, u32};
 
+use crate::{
+    misc::{Ref, RefMut},
+    parser::span::Identifier,
+    zam::Entity,
+};
 
 use super::{misc::join, Type};
 
@@ -15,7 +20,10 @@ pub enum TypeKind {
     },
     Float(u32),
     ID(String),
-    Dec(Vec<usize>),
+    Entity {
+        id: Ref<Identifier>,
+        data: RefMut<Entity>,
+    },
     Fn {
         arg: Vec<Type>,
         ret: Box<Type>,
@@ -26,7 +34,6 @@ pub enum TypeKind {
 impl Display for TypeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let data = match self {
-            TypeKind::Dec(_) => todo!(),
             TypeKind::None => "()".into(),
             TypeKind::Bool => "bool".into(),
             TypeKind::Integer { bit, sign } => match bit {
@@ -48,6 +55,7 @@ impl Display for TypeKind {
             TypeKind::Tuple(items) => join(items),
             TypeKind::ID(v) => v.into(),
             TypeKind::Unknown => "UNKNOWN".into(),
+            TypeKind::Entity { id, .. } => id.to_string(),
         };
 
         f.write_str(&data)

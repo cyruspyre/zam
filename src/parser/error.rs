@@ -44,20 +44,12 @@ impl Parser {
         self.err(msg)
     }
 
-    pub fn err_mul<'a, S: AsRef<str> + Display + From<&'a str>>(
+    pub fn err_mul<'a, S: AsRef<str> + Display + From<&'a str>, const N: usize>(
         &mut self,
-        pnt: &mut [[usize; 2]],
+        pnt: [[usize; 2]; N],
         msg: S,
     ) -> Option<!> {
-        self.log(
-            &mut pnt
-                .into_iter()
-                .map(|v| (*v, Point::Error, ""))
-                .collect::<Vec<_>>(),
-            Log::Error,
-            msg,
-            "",
-        );
+        self.log(&mut pnt.map(|v| (v, Point::Error, "")), Log::Error, msg, "");
 
         None
     }

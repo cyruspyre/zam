@@ -3,9 +3,10 @@ use std::{env::current_dir, path::PathBuf};
 use block::Block;
 use expression::Expression;
 use fields::Fields;
+use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
 
-use crate::parser::Parser;
+use crate::parser::{span::Identifier, Parser};
 
 pub mod block;
 pub mod expression;
@@ -30,6 +31,8 @@ pub enum Entity {
     Struct {
         gen: Generic,
         fields: Fields<Type>,
+        impls: IndexMap<Identifier, Entity>,
+        traits: IndexMap<Identifier, [usize; 2]>,
     },
     Variable {
         exp: Expression,

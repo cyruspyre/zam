@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use indexmap::IndexMap;
 
 use crate::parser::{
@@ -8,6 +10,12 @@ use crate::parser::{
 use super::Parser;
 
 pub type Fields<T> = IndexMap<Identifier, T>;
+
+pub trait FieldValue {
+    fn field_value(src: &mut Parser) -> Option<Self>
+    where
+        Self: Sized;
+}
 
 impl Parser {
     pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Fields<T>> {
@@ -65,10 +73,4 @@ impl Parser {
 
         Some(fields)
     }
-}
-
-pub trait FieldValue {
-    fn field_value(src: &mut Parser) -> Option<Self>
-    where
-        Self: Sized;
 }

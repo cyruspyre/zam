@@ -27,6 +27,14 @@ impl Parser {
         let fields = self.fields('}')?;
         self.ctx = None;
 
-        Some((name, Entity::Struct { gen, fields }))
+        Some((
+            name,
+            Entity::Struct {
+                gen,
+                fields,
+                impls: IndexMap::new(),
+                traits: IndexMap::new(),
+            },
+        ))
     }
 }

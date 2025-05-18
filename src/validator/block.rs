@@ -8,7 +8,9 @@ use super::{lookup::Lookup, Validator};
 impl Validator {
     pub fn block(&mut self, block: &mut Block, lookup: &mut Lookup) {
         let dec = &mut block.dec;
-        let Lookup { var, stack, cur } = lookup.bypass();
+        let Lookup {
+            var, stack, cur, ..
+        } = lookup.bypass();
 
         stack.push(dec.bypass());
 
@@ -23,18 +25,11 @@ impl Validator {
             }
         }
 
-        // debugging purpose
-        let mut tmp = dec.into_iter();
-        while let Some((_, Entity::Variable { exp, .. })) = tmp.next() {
-            println!("{exp} is {}", exp.typ)
-        }
-
         let len = var.len();
 
         for v in &mut block.stm {
             match v {
                 Statement::Variable { id, data } => {
-                    // println!("{exp}");
                     self.variable(data, lookup);
                     var.insert(id.bypass(), data.bypass());
                 }
@@ -51,12 +46,6 @@ impl Validator {
                 v => todo!("Statement::{v:?}"),
             }
         }
-
-        // let mut tmp = block.stm.bypass().into_iter();
-
-        // while let Some(Statement::Variable { exp, .. }) = tmp.next() {
-        //     println!("{exp} is {}", exp.typ)
-        // }
 
         stack.pop();
         var.truncate(len);

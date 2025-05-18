@@ -5,7 +5,7 @@ mod number;
 pub mod term;
 mod text;
 
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use group::GroupValue;
 use misc::Range;
@@ -22,11 +22,10 @@ use crate::{
 
 use super::{fields::FieldValue, typ::Type, Parser};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct Expression {
     pub data: Vec<Span<Term>>,
     pub typ: Type,
-    pub done: bool,
 }
 
 impl From<Vec<Span<Term>>> for Expression {
@@ -60,6 +59,19 @@ impl GroupValue for Expression {
         }
 
         Some(Some(exp))
+    }
+}
+
+impl Debug for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            return f.write_str(&self.to_string());
+        }
+        
+        f.debug_struct("Expression")
+            .field("data", &self.data)
+            .field("typ", &self.typ)
+            .finish()
     }
 }
 
@@ -244,7 +256,6 @@ impl Parser {
                     self.err_op(false, &op)?
                 }
             };
-            println!("{tmp:?}");
             let special = !matches!(
                 tmp,
                 Term::Ref | Term::Deref | Term::Neg | Term::As(_) | Term::Struct(_)

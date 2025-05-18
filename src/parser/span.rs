@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::Display,
+    fmt::{Debug, Display, Formatter, Result},
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
@@ -9,7 +9,7 @@ use super::Parser;
 
 pub type Identifier = Span<String>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Span<T> {
     pub rng: [usize; 2],
     pub data: T,
@@ -65,8 +65,21 @@ impl<T> Borrow<T> for Span<T> {
     }
 }
 
+impl<T: Debug> Debug for Span<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if f.alternate() {
+            return self.data.fmt(f);
+        }
+
+        f.debug_struct("Span")
+            .field("rng", &self.rng)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
 impl<T: Display> Display for Span<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         Display::fmt(&self.data, f)
     }
 }

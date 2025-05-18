@@ -30,7 +30,7 @@ impl<T> Either<T> for Result<T> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Ref<T>(pub *mut T);
+pub struct Ref<T>(pub *const T);
 
 impl<T> Deref for Ref<T> {
     type Target = T;
@@ -40,7 +40,18 @@ impl<T> Deref for Ref<T> {
     }
 }
 
-impl<T> DerefMut for Ref<T> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefMut<T>(pub *mut T);
+
+impl<T> Deref for RefMut<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.0 }
+    }
+}
+
+impl<T> DerefMut for RefMut<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.0 }
     }

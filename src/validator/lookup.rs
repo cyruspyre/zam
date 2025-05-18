@@ -1,20 +1,23 @@
-use std::{collections::VecDeque, ops::DerefMut};
+use std::{borrow::Cow, collections::VecDeque, ops::DerefMut};
 
 use indexmap::IndexMap;
 use strsim::jaro;
 
 use crate::{
-    misc::{Bypass, Either, Result},
+    misc::{Bypass, Either, Ref, RefMut, Result},
     parser::{
         log::{Log, Point},
         span::Span,
         Parser,
     },
-    zam::{typ::kind::TypeKind, Entity},
+    zam::{expression::term::Term, typ::kind::TypeKind, Entity},
 };
+
+use super::Validator;
 
 pub struct Lookup<'a> {
     pub cur: &'a mut Parser,
+    pub validator: &'a mut Validator,
     pub var: IndexMap<&'a Span<String>, &'a mut Entity>,
     pub stack: Vec<&'a mut IndexMap<Span<String>, Entity>>,
 }
@@ -71,6 +74,116 @@ impl<'a> Lookup<'a> {
         }
     }
 
+    pub fn as_typ<F>(&mut self, id: Span<&mut String>, mut next: F) -> Option<Cow<TypeKind>>
+    where
+        F: FnMut() -> Option<&'a mut Term>,
+    {
+        let cur = self.cur.bypass();
+        let validator = self.validator.bypass();
+        let res = self.bypass().call(*id);
+        let Some(Ok((k, v))) = res else {
+            let mut pnt = Vec::new();
+
+            if let Some(Err((k, v))) = res {
+                pnt.push((
+                    k.rng,
+                    Point::Info,
+                    format!("similar {} named `{k}` exists", v.name()),
+                ));
+            }
+
+            pnt.push((id.rng, Point::Error, String::new()));
+            cur.log(
+                &mut pnt,
+                Log::Error,
+                format!("cannot find identifier `{id}`"),
+                "",
+            );
+            return None;
+        };
+
+        let typ = match v.bypass() {
+            Entity::Variable { exp, done, .. } => 'a: {
+                if *done && exp.typ.kind.data == TypeKind::Unknown {
+                    break 'a Cow::Owned(TypeKind::Unknown);
+                }
+
+                validator.variable(v, self);
+                Cow::Borrowed(&exp.typ.kind.data)
+            }
+            Entity::Struct {
+                gen,
+                fields,
+                impls,
+                traits,
+            } => {
+                let Some(Term::Struct(vals)) = next() else {
+                    cur.err(format!("expected struct initalization, found type `{id}`"))?
+                };
+                let mut pnt = Vec::new();
+                let err = cur.err;
+
+                for (k, exp) in &mut *vals {
+                    if let Some(v) = fields.get(k) {
+                        exp.typ = v.clone();
+                        exp.typ.kind.rng.fill(0);
+                        validator.validate_type(exp, self)?
+                    } else {
+                        pnt.push((k.rng, Point::Error, ""));
+                    }
+                }
+
+                if pnt.len() != 0 {
+                    let msg = format!(
+                        "unknown field{} for struct `{id}`",
+                        if pnt.len() == 1 { "" } else { "s" }
+                    );
+
+                    cur.log(&mut pnt, Log::Error, msg, "");
+                }
+
+                let mut msg = String::from("missing field");
+                let last = match fields.len() {
+                    0 | 1 => 1,
+                    n => {
+                        msg.push('s');
+                        n - 1
+                    }
+                };
+
+                for (i, id) in fields.keys().enumerate() {
+                    if !vals.contains_key(id) {
+                        msg += if i == last {
+                            " and "
+                        } else if i != 0 {
+                            ", "
+                        } else {
+                            " "
+                        };
+
+                        msg += &format!("`{id}`");
+                    }
+                }
+
+                if msg.len() > 14 {
+                    cur.err_rng(id.rng, msg);
+                }
+
+                if err != cur.err {
+                    return None;
+                }
+
+                Cow::Owned(TypeKind::Entity {
+                    id: Ref(k),
+                    data: RefMut(v),
+                })
+            }
+            v => todo!("Entity::{v:?}"),
+        };
+
+        Some(typ)
+    }
+
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
         let cur = self.cur.bypass();
 
@@ -109,7 +222,10 @@ impl<'a> Lookup<'a> {
             Entity::Variable { .. } => "variable",
             Entity::Function { .. } => "function",
             Entity::Struct { .. } if ok => {
-                return todo!(); // kind.data = TypeKind::Dec(v);
+                return kind.data = TypeKind::Entity {
+                    id: Ref(k),
+                    data: RefMut(v),
+                };
             }
             _ => todo!(),
         };

@@ -26,6 +26,7 @@ impl Validator {
 
         for src in self.bypass().srcs.values_mut() {
             let mut lookup = Lookup {
+                validator: self.bypass(),
                 cur: &mut src.parser,
                 var: IndexMap::new(),
                 stack: Vec::new(),

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use crate::{
     cfg::Config,
@@ -107,8 +107,6 @@ impl Term {
             },
             _ => todo!(),
         };
-
-        println!("{tmp:?}");
     }
 
     pub fn check_rng(&self, src: &mut Parser) {
@@ -164,6 +162,7 @@ impl Display for Term {
             },
             Term::Float { val, bit } => format!("{val:?}f{bit}"),
             Term::Group(v) => format!("({})", v.to_string()),
+            Term::Struct(fields) => format!("{fields:#?}"),
             Term::Tuple(v) => format!(
                 "({})",
                 v.iter()
