@@ -118,6 +118,7 @@ impl Parser {
         }
 
         if ok || early {
+            rng[1] += buf.len() - 1;
             self.rng = rng;
         }
 
@@ -213,7 +214,7 @@ impl Parser {
 
         if required && tmp.is_empty() {
             let rng = self.rng;
-            let mut after = self.until_whitespace().is_empty();
+            let mut after = self.id_or_symbol().is_none();
 
             if self.data[self.rng[0] - 1] == '\n' {
                 self.rng = rng;
@@ -367,28 +368,27 @@ impl Parser {
         None
     }
 
-    pub fn until_whitespace(&mut self) -> String {
-        let mut buf = String::new();
+    pub fn id_or_symbol(&mut self) -> Option<String> {
+        self.skip_whitespace();
+
+        let tmp = self._next()?;
+        let typ = tmp.is_id();
+        let mut buf = tmp.to_string();
+
+        self.rng.fill(self.idx);
 
         while let Some(c) = self._next() {
-            if c.is_ascii_whitespace() {
-                if buf.is_empty() {
-                    continue;
-                }
-
+            if c.is_ascii_whitespace() || c.is_id() != typ {
                 break;
-            }
-
-            if buf.is_empty() {
-                self.rng = [self.idx; 2];
-            } else {
-                self.rng[1] += 1;
             }
 
             buf.push(c);
         }
 
-        buf
+        self.idx -= 1;
+        self.rng[1] = self.idx;
+
+        Some(buf)
     }
 
     pub fn might<T: Display>(&mut self, t: T) -> bool {

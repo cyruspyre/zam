@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-use super::{fields::FieldValue, typ::Type, Parser};
+use super::{block::BlockType, fields::FieldValue, typ::Type, Parser};
 
 #[derive(Clone, Default, PartialEq)]
 pub struct Expression {
@@ -67,7 +67,7 @@ impl Debug for Expression {
         if f.alternate() {
             return f.write_str(&self.to_string());
         }
-        
+
         f.debug_struct("Expression")
             .field("data", &self.data)
             .field("typ", &self.typ)
@@ -210,7 +210,7 @@ impl Parser {
                         self.idx += 1;
                         Term::Struct(self.fields('}')?)
                     }
-                    _ => Term::Block(self.block(false)?),
+                    _ => Term::Block(self.block(BlockType::Local)?),
                 }
             } else if c == '[' {
                 self.array()?

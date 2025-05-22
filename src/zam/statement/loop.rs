@@ -1,4 +1,5 @@
 use crate::zam::{
+    block::BlockType,
     expression::{term::AssignKind, Expression},
     Entity,
 };
@@ -84,7 +85,7 @@ impl Parser {
             stm.push(v)
         }
 
-        Some(Statement::Loop(self._block(false, stm)?))
+        Some(Statement::Loop(self._block(BlockType::Local, stm)?))
     }
 
     fn _break(&self) -> Block {

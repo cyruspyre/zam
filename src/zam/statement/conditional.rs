@@ -1,4 +1,4 @@
-use crate::zam::typ::kind::TypeKind;
+use crate::zam::{block::BlockType, typ::kind::TypeKind};
 
 use super::{super::Parser, Statement};
 
@@ -12,7 +12,7 @@ impl Parser {
 
             exp.typ.kind.data = TypeKind::Bool;
 
-            let block = self.block(false)?;
+            let block = self.block(BlockType::Local)?;
             let mut tmp = self.idx;
 
             cond.push((exp, block));
@@ -26,7 +26,7 @@ impl Parser {
 
                 self.idx = tmp;
 
-                default = Some(self.block(false)?)
+                default = Some(self.block(BlockType::Local)?)
             } else {
                 self.idx = tmp
             }

@@ -1,5 +1,8 @@
 mod function;
+mod implement;
 mod r#struct;
+
+use std::fmt::{Display, Formatter, Result};
 
 use indexmap::IndexMap;
 
@@ -11,29 +14,53 @@ use crate::{
     },
 };
 
-use super::{statement::Statement, Entity, Parser};
+use super::{statement::Statement, typ::generic::Generic, Entity, Parser};
+
+pub(super) type Impls = IndexMap<Identifier, IndexMap<Identifier, Vec<(Generic, Block)>>>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
     pub public: Vec<usize>,
     pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
+    pub impls: Impls,
+}
+
+#[derive(PartialEq)]
+pub enum BlockType {
+    Impl,
+    Local,
+    Global,
+}
+
+impl Display for BlockType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.write_str(match self {
+            BlockType::Impl => "implementation",
+            BlockType::Local => "local",
+            BlockType::Global => "global",
+        })
+    }
 }
 
 impl Parser {
-    pub fn block(&mut self, global: bool) -> Option<Block> {
-        self._block(global, Vec::new())
+    pub fn block(&mut self, typ: BlockType) -> Option<Block> {
+        self._block(typ, Vec::new())
     }
 
-    pub fn _block(&mut self, global: bool, mut stm: Vec<Statement>) -> Option<Block> {
-        if !global {
-            self.expect(&['{'])?;
+    pub fn _block(&mut self, typ: BlockType, mut stm: Vec<Statement>) -> Option<Block> {
+        if typ != BlockType::Global {
+            if self.data[self.idx] != '{' {
+                self.expect(&['{'])?;
+            }
+
             self.ensure_closed('}')?;
         }
 
         let mut dup = IndexMap::new();
         let mut flag = true;
         let mut dec: IndexMap<Identifier, _> = IndexMap::new();
+        let mut impls = IndexMap::new();
         let mut public = Vec::new();
         let stm_ref = stm.bypass();
         let de = match self.de.back() {
@@ -42,34 +69,45 @@ impl Parser {
         };
 
         'one: loop {
+            self.skip_whitespace();
+
             if self.idx == de {
                 self.de.pop_back();
                 self._next();
                 break;
             }
 
+            let not_local = typ != BlockType::Local;
             let stamp = self.idx;
-            let tmp = self.until_whitespace();
+            let Some(tmp) = self.id_or_symbol() else {
+                break;
+            };
             let tmp = tmp.as_str();
 
             if tmp.is_empty() {
                 break;
             }
 
+            if tmp == "impl" {
+                self.implement(&mut impls)?;
+                continue;
+            }
+
             'two: {
                 let (k, v) = match tmp {
                     "fn" => self.fun()?,
+                    "pub" if not_local => {
+                        flag = true;
+                        continue 'one;
+                    }
+                    _ if typ == BlockType::Impl => break 'two,
                     "struct" => self.strukt()?,
-                    "let" | "cte" if global => match self.var(tmp == "cte")? {
+                    "let" | "cte" => match self.var(tmp == "cte")? {
                         Statement::Variable { id, data } => (id, data),
                         _ => unreachable!(),
                     },
                     // "use" => ,
                     // "extern" => self.ext(&mut ext),
-                    "pub" => {
-                        flag = true;
-                        continue 'one;
-                    }
                     _ => break 'two,
                 };
 
@@ -89,8 +127,9 @@ impl Parser {
                 continue 'one;
             }
 
-            if global {
-                self.err("expected keyword of global context")?
+            if not_local {
+                dbg!(self.idx, de, tmp);
+                self.err(format!("expected keyword of {typ} context"))?
             } else if stamp == de {
                 continue;
             }
@@ -131,6 +170,11 @@ impl Parser {
             );
         }
 
-        Some(Block { dec, stm, public })
+        Some(Block {
+            dec,
+            stm,
+            impls,
+            public,
+        })
     }
 }

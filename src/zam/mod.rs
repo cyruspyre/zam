@@ -1,6 +1,6 @@
 use std::{env::current_dir, path::PathBuf};
 
-use block::Block;
+use block::{Block, BlockType};
 use expression::Expression;
 use fields::Fields;
 use indexmap::IndexMap;
@@ -60,7 +60,7 @@ impl Zam {
         )?;
 
         Some(Self {
-            block: parser.block(true)?,
+            block: parser.block(BlockType::Global)?,
             parser,
         })
     }

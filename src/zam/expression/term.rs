@@ -176,7 +176,9 @@ impl Display for Term {
                 true => format!("{:?}", data.as_bytes()),
                 _ => format!("{data:?}"),
             },
-            Term::Block(Block { dec, stm, public }) => {
+            Term::Block(Block {
+                dec, stm, public, ..
+            }) => {
                 let mut buf = Vec::with_capacity(dec.len() + stm.len());
 
                 for (i, (k, v)) in dec.iter().enumerate() {

@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use super::Parser;
+use super::{BlockType, Parser};
 
 impl Parser {
     pub fn fun(&mut self) -> Option<(Identifier, Entity)> {
@@ -44,7 +44,7 @@ impl Parser {
                 arg,
                 gen,
                 ret,
-                block: Some(self.block(false)?),
+                block: Some(self.block(BlockType::Local)?),
             },
         ))
     }
