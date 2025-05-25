@@ -29,7 +29,7 @@ impl<T> Either<T> for Result<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ref<T>(pub *const T);
 
 impl<T> Deref for Ref<T> {

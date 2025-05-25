@@ -4,7 +4,7 @@ use super::{super::Parser, Statement};
 
 impl Parser {
     pub fn var(&mut self, cte: bool) -> Option<Statement> {
-        let id = self.identifier(true)?;
+        let id = self.identifier(true, false)?;
         let de = self.expect_char(&[':', '=', ';'])?;
         let typ = match de {
             ':' => self.typ()?,

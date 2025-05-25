@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, ptr::null};
 
 use indexmap::IndexMap;
 
-use crate::{cfg::Config, err, validator::Validator, zam::Zam};
+use crate::{cfg::Config, err, misc::Ref, validator::Validator, zam::Zam};
 
 pub fn zam(mut path: PathBuf, cfg: Config) {
     if !path.exists() {
@@ -19,6 +19,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
 
     let mut stack = vec![path.clone()];
     let mut srcs = IndexMap::new();
+    let mut impls = IndexMap::new();
     let mut err = 0;
 
     while let Some(v) = stack.pop() {
@@ -33,27 +34,27 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
             if typ.is_dir() {
                 tmp.push(src);
             } else if typ.is_file() && src.extension().is_some_and(|v| v == "z") {
-                srcs.insert(
-                    if !srcs.contains_key(pkg) && entry.file_name() == "main.z" {
-                        pkg.clone()
-                    } else {
-                        format!(
-                            "{pkg}/{}",
-                            src.strip_prefix(&path)
-                                .unwrap()
-                                .with_extension("")
-                                .to_str()
-                                .unwrap()
-                        )
-                    },
-                    match Zam::parse(src) {
-                        Some(v) => v,
-                        _ => {
-                            err += 1;
-                            continue;
-                        }
-                    },
-                );
+                let key = match !srcs.contains_key(pkg) && entry.file_name() == "main.z" {
+                    true => pkg.clone(),
+                    _ => format!(
+                        "{pkg}/{}",
+                        src.strip_prefix(&path)
+                            .unwrap()
+                            .with_extension("")
+                            .to_str()
+                            .unwrap()
+                    ),
+                };
+                let mut value = match Zam::parse(src) {
+                    Some(v) => v,
+                    _ => {
+                        err += 1;
+                        continue;
+                    }
+                };
+
+                impls.insert(Ref(&key), value.block.impls.take().unwrap());
+                srcs.insert(key, value);
             }
         }
 
@@ -62,5 +63,11 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
         }
     }
 
-    Validator::new(cfg, srcs).validate(err);
+    Validator {
+        cfg,
+        cur: Ref(null()),
+        srcs,
+        impls,
+    }
+    .validate(err)
 }

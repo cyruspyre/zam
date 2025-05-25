@@ -2,8 +2,7 @@ use std::{fmt::Display, u32};
 
 use crate::{
     misc::{Ref, RefMut},
-    parser::span::Identifier,
-    zam::Entity,
+    zam::{identifier::Identifier, Entity},
 };
 
 use super::{misc::join, Type};
@@ -19,7 +18,7 @@ pub enum TypeKind {
         sign: bool,
     },
     Float(u32),
-    ID(String),
+    ID(Identifier),
     Entity {
         id: Ref<Identifier>,
         data: RefMut<Entity>,
@@ -53,7 +52,7 @@ impl Display for TypeKind {
             },
             TypeKind::Fn { arg, ret } => format!("fn({}) -> {ret}", join(arg)),
             TypeKind::Tuple(items) => join(items),
-            TypeKind::ID(v) => v.into(),
+            TypeKind::ID(v) => v.to_string(),
             TypeKind::Unknown => "UNKNOWN".into(),
             TypeKind::Entity { id, .. } => id.to_string(),
         };
@@ -64,7 +63,10 @@ impl Display for TypeKind {
 
 impl TypeKind {
     pub fn try_as_number(&mut self) -> Option<String> {
-        let TypeKind::ID(id) = self else { return None };
+        let id = match self {
+            TypeKind::ID(id) if id.is_qualified() => id.leaf_name(),
+            _ => return None,
+        };
         let mut iter = id.chars();
         let Some(pfx) = iter.next() else {
             return None;

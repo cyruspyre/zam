@@ -2,10 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     misc::Bypass,
-    parser::{
-        log::{Log, Point},
-        span::ToSpan,
-    },
+    parser::log::{Log, Point},
     zam::{
         expression::{misc::Range, term::Term, Expression},
         typ::{kind::TypeKind, Type},
@@ -56,14 +53,10 @@ impl Validator {
                     _ => cur.err("expected a term beforehand")?,
                 },
                 // todo: find a way to apply inferred type to used variables in an expr
-                Term::Identifier(id) => {
-                    lookup
-                        .bypass()
-                        .as_typ(id.span(v.rng), || match iter.next() {
-                            Some(v) => Some(&mut v.1.data),
-                            _ => None,
-                        })?
-                }
+                Term::Identifier(id) => lookup.bypass().as_typ(id, || match iter.next() {
+                    Some(v) => Some(&mut v.1.data),
+                    _ => None,
+                })?,
                 v => todo!("Term::{v:?}"),
             };
             let typ = match &mut typ {

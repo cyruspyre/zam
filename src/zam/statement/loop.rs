@@ -1,6 +1,7 @@
 use crate::zam::{
     block::BlockType,
     expression::{term::AssignKind, Expression},
+    identifier::Identifier,
     Entity,
 };
 
@@ -19,13 +20,14 @@ impl Parser {
 
         if let Some(v) = match typ {
             "for" => {
-                let tmp = self.identifier(true)?;
-                let [val, exp] = [format!("{}{tmp}", stm.len()), stm.len().to_string()];
-                let nullable = format!("_{val}");
+                let tmp = self.identifier(true, false)?;
+                let [val, exp]: [Identifier; 2] =
+                    [format!("{}{tmp}", stm.len()), stm.len().to_string()].map(|v| v.into());
+                let nullable: Identifier = format!("_{val}").into();
                 self.expect(&["in"])?;
 
                 parent_stm.push(Statement::Variable {
-                    id: self.span(exp.clone()),
+                    id: exp.clone(),
                     data: Entity::Variable {
                         exp: self.exp(['{'], true)?.0,
                         cte: false,
@@ -35,7 +37,7 @@ impl Parser {
 
                 for ele in [val.clone(), nullable.clone()] {
                     parent_stm.push(Statement::Variable {
-                        id: self.span(ele),
+                        id: ele,
                         data: Entity::Variable {
                             exp: Default::default(),
                             cte: false,
@@ -48,7 +50,7 @@ impl Parser {
                     Term::Identifier(nullable.clone()),
                     Term::Assign(AssignKind::Normal),
                     Term::Identifier(exp),
-                    Term::Access(false),
+                    Term::Access,
                     "next".into(),
                     Term::Tuple(Vec::new()),
                 ])));
@@ -90,7 +92,7 @@ impl Parser {
 
     fn _break(&self) -> Block {
         Block {
-            stm: vec![Statement::Break(self.span(String::new()))],
+            stm: vec![Statement::Break(Identifier::default())],
             ..Default::default()
         }
     }

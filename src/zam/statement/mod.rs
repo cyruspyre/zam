@@ -2,9 +2,7 @@ mod conditional;
 mod r#loop;
 mod variable;
 
-use crate::parser::span::Identifier;
-
-use super::{expression::Expression, Block, Entity};
+use super::{expression::Expression, identifier::Identifier, Block, Entity};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {

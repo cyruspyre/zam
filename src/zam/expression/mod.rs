@@ -94,7 +94,7 @@ const OP: [(char, Term, &[(char, Term)]); 12] = {
         ('!', Term::Neg, &[('=', Term::Nq)]),
         ('+', Term::Add, &[]),
         ('-', Term::Sub, &[]),
-        ('.', Term::Access(false), &[('.', Term::Rng)]),
+        ('.', Term::Access, &[('.', Term::Rng)]),
         ('*', Term::Mul, &[]),
         ('/', Term::Div, &[]),
         ('%', Term::Mod, &[]),
@@ -223,7 +223,7 @@ impl Parser {
             } else if c.is_quote() || c.is_id() && self.peek_more().is_quote() {
                 self.text()?
             } else if c.is_id() {
-                Term::Identifier(self.identifier(true)?.data)
+                Term::Identifier(self.identifier(true, true)?)
             } else {
                 self._next();
                 is_op = true;

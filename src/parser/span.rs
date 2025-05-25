@@ -7,7 +7,7 @@ use std::{
 
 use super::Parser;
 
-pub type Identifier = Span<String>;
+//pub type Identifier = Span<String>;
 
 #[derive(Clone)]
 pub struct Span<T> {
@@ -30,6 +30,12 @@ impl<T: Default> Default for Span<T> {
             rng: [0; 2],
             data: T::default(),
         }
+    }
+}
+
+impl<T> Borrow<T> for Span<T> {
+    fn borrow(&self) -> &T {
+        self
     }
 }
 
@@ -56,12 +62,6 @@ impl<T> Deref for Span<T> {
 impl<T> DerefMut for Span<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
-    }
-}
-
-impl<T> Borrow<T> for Span<T> {
-    fn borrow(&self) -> &T {
-        self
     }
 }
 

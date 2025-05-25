@@ -1,4 +1,4 @@
-use crate::parser::span::Identifier;
+use crate::zam::identifier::Identifier;
 
 use super::Parser;
 
@@ -10,7 +10,7 @@ pub struct Trait {
 
 impl Parser {
     pub fn trt(&mut self) -> Option<Trait> {
-        let name = self.identifier(true)?;
+        let name = self.identifier(true, false)?;
         let mut sub = Vec::new();
 
         if self.might('<') {

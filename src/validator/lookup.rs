@@ -10,7 +10,12 @@ use crate::{
         span::Span,
         Parser,
     },
-    zam::{expression::term::Term, typ::kind::TypeKind, Entity},
+    zam::{
+        expression::{misc::Range, term::Term},
+        identifier::Identifier,
+        typ::kind::TypeKind,
+        Entity,
+    },
 };
 
 use super::Validator;
@@ -18,12 +23,16 @@ use super::Validator;
 pub struct Lookup<'a> {
     pub cur: &'a mut Parser,
     pub validator: &'a mut Validator,
-    pub var: IndexMap<&'a Span<String>, &'a mut Entity>,
-    pub stack: Vec<&'a mut IndexMap<Span<String>, Entity>>,
+    pub var: IndexMap<&'a Identifier, &'a mut Entity>,
+    pub stack: Vec<&'a mut IndexMap<Identifier, Entity>>,
 }
 
 impl<'a> Lookup<'a> {
-    pub fn call(&mut self, id: &String) -> Option<Result<(&Span<String>, &mut Entity)>> {
+    pub fn call(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
+        if id.is_qualified() {
+            todo!("qualified identifier lookup")
+        }
+        
         if let Some((_, k, v)) = self.var.bypass().get_full_mut(id) {
             return Some(Ok((*k, v.deref_mut().into())));
         }
@@ -39,7 +48,7 @@ impl<'a> Lookup<'a> {
             two.push_back(dec.iter_mut().map(|(k, v)| (k, v)));
         }
 
-        let mut res: (f64, Option<(&Span<String>, &mut Entity)>) = (0.0, None);
+        let mut res: (f64, Option<(&Identifier, &mut Entity)>) = (0.0, None);
         let mut tmp = None;
 
         loop {
@@ -54,7 +63,7 @@ impl<'a> Lookup<'a> {
             }
 
             if let Some((k, v)) = tmp.take() {
-                let sim = jaro(id, k);
+                let sim = jaro(id.leaf_name(), k.leaf_name());
 
                 if sim > res.0 {
                     res = (sim, Some((k, v)))
@@ -74,25 +83,25 @@ impl<'a> Lookup<'a> {
         }
     }
 
-    pub fn as_typ<F>(&mut self, id: Span<&mut String>, mut next: F) -> Option<Cow<TypeKind>>
+    pub fn as_typ<F>(&mut self, id: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
         let cur = self.cur.bypass();
         let validator = self.validator.bypass();
-        let res = self.bypass().call(*id);
+        let res = self.bypass().call(id);
         let Some(Ok((k, v))) = res else {
             let mut pnt = Vec::new();
 
             if let Some(Err((k, v))) = res {
                 pnt.push((
-                    k.rng,
+                    k.rng(),
                     Point::Info,
                     format!("similar {} named `{k}` exists", v.name()),
                 ));
             }
 
-            pnt.push((id.rng, Point::Error, String::new()));
+            pnt.push((id.rng(), Point::Error, String::new()));
             cur.log(
                 &mut pnt,
                 Log::Error,
@@ -129,7 +138,7 @@ impl<'a> Lookup<'a> {
                         exp.typ.kind.rng.fill(0);
                         validator.validate_type(exp, self)?
                     } else {
-                        pnt.push((k.rng, Point::Error, ""));
+                        pnt.push((k.rng(), Point::Error, ""));
                     }
                 }
 
@@ -166,7 +175,7 @@ impl<'a> Lookup<'a> {
                 }
 
                 if msg.len() > 14 {
-                    cur.err_rng(id.rng, msg);
+                    cur.err_rng(id.rng(), msg);
                 }
 
                 if err != cur.err {
@@ -230,9 +239,9 @@ impl<'a> Lookup<'a> {
             _ => todo!(),
         };
 
-        pnt.push((k.rng, Point::Info, format!("{name} defined here")));
+        pnt.push((k.rng(), Point::Info, format!("{name} defined here")));
 
-        let recursive = *id == k.data;
+        let recursive = id == k;
         let msg = if recursive {
             "recursive type detected without indirections".into()
         } else if ok {
@@ -245,10 +254,10 @@ impl<'a> Lookup<'a> {
         } else if recursive {
             "creates an infinite-sized type".into()
         } else {
-            let b = [k.as_str(), "isize", "usize"]
-                .map(|v| (jaro(v, id), v))
+            let b = [k.leaf_name(), "isize", "usize"]
+                .map(|v| (jaro(v, id.leaf_name()), v))
                 .into_iter()
-                .max_by(|a, b| jaro(a.1, id).total_cmp(&jaro(b.1, id)))
+                .max_by(|a, b| jaro(a.1, id.leaf_name()).total_cmp(&jaro(b.1, id.leaf_name())))
                 .unwrap();
 
             if b.0 >= 0.8 && !name.is_empty() {

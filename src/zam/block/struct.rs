@@ -1,18 +1,15 @@
 use indexmap::IndexMap;
 
 use crate::{
-    parser::{
-        span::{Identifier, ToSpan},
-        Context,
-    },
-    zam::Entity,
+    parser::{span::ToSpan, Context},
+    zam::{expression::misc::Range, identifier::Identifier, Entity},
 };
 
 use super::Parser;
 
 impl Parser {
-    pub fn strukt(&mut self) -> Option<(Identifier, Entity)> {
-        let name = self.identifier(true)?;
+    pub fn structure(&mut self) -> Option<(Identifier, Entity)> {
+        let name = self.identifier(true, false)?;
         let de = self.expect_char(&['<', '{'])?;
         let gen = match de {
             '<' => self.dec_gen()?,
@@ -23,7 +20,7 @@ impl Parser {
             self.expect_char(&['{'])?;
         }
 
-        self.ctx = Some(Context::Struct.span(name.rng));
+        self.ctx = Some(Context::Struct.span(name.rng()));
         let fields = self.fields('}')?;
         self.ctx = None;
 

@@ -1,18 +1,16 @@
 use indexmap::IndexMap;
 
-use crate::{
-    parser::span::Identifier,
-    zam::{
-        typ::{kind::TypeKind, Type},
-        Entity,
-    },
+use crate::zam::{
+    identifier::Identifier,
+    typ::{kind::TypeKind, Type},
+    Entity,
 };
 
 use super::{BlockType, Parser};
 
 impl Parser {
     pub fn fun(&mut self) -> Option<(Identifier, Entity)> {
-        let name = self.identifier(true)?;
+        let name = self.identifier(true, false)?;
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
             '<' => self.dec_gen()?,

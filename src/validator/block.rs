@@ -1,6 +1,6 @@
 use crate::{
     misc::Bypass,
-    zam::{block::Block, statement::Statement, Entity},
+    zam::{block::Block, expression::misc::Range, statement::Statement, Entity},
 };
 
 use super::{lookup::Lookup, Validator};
@@ -15,7 +15,7 @@ impl Validator {
         stack.push(dec.bypass());
 
         for (id, val) in dec.bypass() {
-            cur.rng = id.rng;
+            cur.rng = id.rng();
 
             match val {
                 //Entity::Type { typ, public } => todo!(),

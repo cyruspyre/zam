@@ -9,22 +9,25 @@ mod variable;
 use indexmap::IndexMap;
 use lookup::Lookup;
 
-use crate::{cfg::Config, err, misc::Bypass, zam::Zam};
+use crate::{
+    cfg::Config,
+    err,
+    misc::{Bypass, Ref},
+    zam::{block::Impls, Zam},
+};
 
 pub struct Validator {
-    cfg: Config,
-    srcs: IndexMap<String, Zam>,
+    pub cfg: Config,
+    pub cur: Ref<String>,
+    pub srcs: IndexMap<String, Zam>,
+    pub impls: IndexMap<Ref<String>, Impls>,
 }
 
 impl Validator {
-    pub fn new(cfg: Config, srcs: IndexMap<String, Zam>) -> Self {
-        Self { cfg, srcs }
-    }
-
     pub fn validate(mut self, mut err: usize) {
         self.main_fn();
 
-        for src in self.bypass().srcs.values_mut() {
+        for (id, src) in &mut self.bypass().srcs {
             let mut lookup = Lookup {
                 validator: self.bypass(),
                 cur: &mut src.parser,
@@ -32,6 +35,7 @@ impl Validator {
                 stack: Vec::new(),
             };
 
+            self.cur = Ref(id);
             self.block(&mut src.block, &mut lookup);
             err += lookup.cur.err;
         }

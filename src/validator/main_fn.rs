@@ -2,7 +2,7 @@ use strsim::jaro;
 
 use crate::{
     parser::log::{Log, Point},
-    zam::Entity,
+    zam::{expression::misc::Range, Entity},
 };
 
 use super::Validator;
@@ -14,7 +14,7 @@ impl Validator {
             .block
             .dec
             .iter()
-            .map(|(k, v)| (jaro("main", k), k.rng, v))
+            .map(|(k, v)| (jaro("main", k.leaf_name()), k.rng(), v))
             .max_by(|a, b| a.0.total_cmp(&b.0))
         {
             Some((sim, rng, data)) if sim > 0.8 => (

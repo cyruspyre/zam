@@ -10,10 +10,10 @@ impl Parser {
             true => self.dec_gen()?,
             _ => Default::default(),
         };
-        let mut id_one = self.identifier(true)?;
+        let mut id_one = self.identifier(true, true)?;
         let trt_impl = self.expect(&["for", "{"])? == "for";
         let mut id_two = if trt_impl {
-            self.identifier(true)?
+            self.identifier(true, true)?
         } else {
             Default::default()
         };

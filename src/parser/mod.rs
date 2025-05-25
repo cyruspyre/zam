@@ -7,7 +7,7 @@ use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
 
 use log::{Log, Point};
 use misc::{read_file, CharExt};
-use span::{Identifier, Span, ToSpan};
+use span::Span;
 
 use crate::misc::{Either, Result};
 
@@ -74,6 +74,7 @@ impl Parser {
         self._next().unwrap()
     }
 
+    // todo: this looks hideous try to rewrite it
     pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Result<String> {
         let tmp = self.idx;
         let mut rng = self.rng;
@@ -118,7 +119,7 @@ impl Parser {
         }
 
         if ok || early {
-            rng[1] += buf.len() - 1;
+            rng[1] += buf.len().checked_sub(1).unwrap_or_default();
             self.rng = rng;
         }
 
@@ -199,69 +200,70 @@ impl Parser {
         buf
     }
 
-    fn _identifier(&mut self, required: bool) -> Option<Identifier> {
-        let tmp = self.word();
-        let mut err = |msg: &str| {
-            self.log(
-                &mut [(self.rng, Point::Error, msg)],
-                Log::Error,
-                format!("expected `<identifier>`",),
-                "",
-            );
+    // fn _identifier(&mut self, required: bool) -> Option<Identifier> {dbg!(self.rng);
+    //     let tmp = self.word();
+    //     dbg!(self.rng);
+    //     let mut err = |msg: &str| {
+    //         self.log(
+    //             &mut [(self.rng, Point::Error, msg)],
+    //             Log::Error,
+    //             format!("expected `<identifier>`",),
+    //             "",
+    //         );
 
-            None::<!>
-        };
+    //         None::<!>
+    //     };
 
-        if required && tmp.is_empty() {
-            let rng = self.rng;
-            let mut after = self.id_or_symbol().is_none();
+    //     if required && tmp.is_empty() {
+    //         let rng = self.rng;
+    //         let mut after = self.id_or_symbol().is_none();
 
-            if self.data[self.rng[0] - 1] == '\n' {
-                self.rng = rng;
-                after = true;
-            }
+    //         if self.data[self.rng[0] - 1] == '\n' {
+    //             self.rng = rng;
+    //             after = true;
+    //         }
 
-            self.err_op(after, &["<identifier>"])?
-        }
+    //         self.err_op(after, &["<identifier>"])?
+    //     }
 
-        if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-            err("cannot start with a number")?
-        }
+    //     if tmp.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+    //         err("cannot start with a number")?
+    //     }
 
-        if matches!(
-            tmp.as_str(),
-            "fn" | "if"
-                | "in"
-                | "cte"
-                | "let"
-                | "pub"
-                | "use"
-                | "for"
-                | "else"
-                | "loop"
-                | "enum"
-                | "true"
-                | "false"
-                | "while"
-                | "struct"
-                | "extern"
-        ) {
-            err("cannot be a keyword")?
-        }
+    //     if matches!(
+    //         tmp.as_str(),
+    //         "fn" | "if"
+    //             | "in"
+    //             | "cte"
+    //             | "let"
+    //             | "pub"
+    //             | "use"
+    //             | "for"
+    //             | "else"
+    //             | "loop"
+    //             | "enum"
+    //             | "true"
+    //             | "false"
+    //             | "while"
+    //             | "struct"
+    //             | "extern"
+    //     ) {
+    //         err("cannot be a keyword")?
+    //     }
 
-        Some(tmp.span(self.rng))
-    }
+    //     Some(tmp.span(self.rng))
+    // }
 
-    pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
-        let idx = self.idx;
-        let tmp = self._identifier(required);
+    // pub fn identifier(&mut self, required: bool) -> Option<Identifier> {
+    //     let idx = self.idx;
+    //     let tmp = self._identifier(required);
 
-        if self.ignore && tmp.is_none() {
-            self.idx = idx
-        }
+    //     if self.ignore && tmp.is_none() {
+    //         self.idx = idx
+    //     }
 
-        tmp
-    }
+    //     tmp
+    // }
 
     pub fn skip_whitespace(&mut self) -> char {
         while let Some(c) = self._peek() {

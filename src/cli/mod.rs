@@ -1,7 +1,7 @@
 mod init;
 mod zam;
 
-use std::path::{absolute, PathBuf};
+use std::path::PathBuf;
 
 use clap::{arg, builder::PathBufValueParser, Command};
 use init::init;
@@ -44,7 +44,7 @@ pub fn start() {
         .get_matches()
         .remove_subcommand()
         .unwrap();
-    let path = absolute(cmd.remove_one::<PathBuf>("PATH").unwrap()).unwrap();
+    let path = cmd.remove_one::<PathBuf>("PATH").unwrap();
     let cfg = path.join("zam.toml");
 
     match name.as_str() {

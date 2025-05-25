@@ -1,9 +1,9 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    cfg::Config,
     parser::span::Span,
     zam::{
+        identifier::Identifier,
         statement::Statement,
         typ::{kind::TypeKind, Type},
         Entity,
@@ -61,8 +61,8 @@ pub enum Term {
     Tuple(Vec<Expression>),
     Struct(Fields<Expression>),
     Generic(Vec<Span<Type>>),
-    Identifier(String),
-    Access(bool),
+    Identifier(Identifier),
+    Access,
     Rng,
     Assign(AssignKind),
     As(Type),
@@ -90,25 +90,6 @@ pub enum Term {
 }
 
 impl Term {
-    pub fn as_type(&self, from: &Type, cfg: &Config) {
-        let tmp = match self {
-            Term::Integer { bit, sign, .. } => match bit {
-                0 => match from.kind.data {
-                    TypeKind::Integer { .. } => from.kind.data.clone(),
-                    _ => TypeKind::Integer {
-                        bit: 32,
-                        sign: true,
-                    },
-                },
-                _ => TypeKind::Integer {
-                    bit: if *bit == u32::MAX { cfg.bit } else { *bit },
-                    sign: *sign,
-                },
-            },
-            _ => todo!(),
-        };
-    }
-
     pub fn check_rng(&self, src: &mut Parser) {
         if let Term::Integer {
             val,
@@ -139,9 +120,15 @@ impl Term {
     }
 }
 
+impl<const N: usize> Into<Term> for [&str; N] {
+    fn into(self) -> Term {
+        Term::Identifier(Identifier::from(self))
+    }
+}
+
 impl Into<Term> for &str {
     fn into(self) -> Term {
-        Term::Identifier(self.into())
+        Term::Identifier(Identifier::from([self]))
     }
 }
 
@@ -171,7 +158,7 @@ impl Display for Term {
                     .join(", ")
             ),
             Term::As(v) => format!("as {v}"),
-            Term::Identifier(v) => v.clone(),
+            Term::Identifier(v) => v.to_string(),
             Term::String { data, byte } => match byte {
                 true => format!("{:?}", data.as_bytes()),
                 _ => format!("{data:?}"),
@@ -243,10 +230,7 @@ impl Display for Term {
                 format!("{{\n    {}\n}}", buf.join("\n"))
             }
             _ => match self {
-                Term::Access(v) => match v {
-                    true => "::",
-                    _ => ".",
-                },
+                Term::Access => ".",
                 Term::Add => "+",
                 Term::Sub => "-",
                 Term::Mul | Term::Deref => "*",

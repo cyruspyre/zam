@@ -1,11 +1,8 @@
 use indexmap::IndexMap;
 
-use crate::parser::{
-    log::{Log, Point},
-    span::{Identifier, Span},
-};
+use crate::parser::log::{Log, Point};
 
-use super::Parser;
+use super::{expression::misc::Range, identifier::Identifier, Parser};
 
 pub type Fields<T> = IndexMap<Identifier, T>;
 
@@ -18,7 +15,7 @@ pub trait FieldValue {
 impl Parser {
     pub fn fields<T: FieldValue>(&mut self, de: char) -> Option<Fields<T>> {
         self.ensure_closed(de)?;
-        let mut fields: IndexMap<Span<String>, T> = IndexMap::new();
+        let mut fields: IndexMap<Identifier, T> = IndexMap::new();
         let mut dup = IndexMap::new();
 
         loop {
@@ -26,7 +23,7 @@ impl Parser {
                 break;
             }
 
-            let name = self.identifier(true)?;
+            let name = self.identifier(true, false)?;
 
             self.expect_char(&[':'])?;
             self.skip_whitespace();
@@ -44,9 +41,11 @@ impl Parser {
             }
 
             if let Some((prev, _)) = fields.get_key_value(&name) {
-                dup.entry(name.data)
-                    .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
-                    .push((name.rng, Point::Error, ""))
+                let rng = name.rng();
+
+                dup.entry(name)
+                    .or_insert(vec![(prev.rng(), Point::Error, "first declared here")])
+                    .push((rng, Point::Error, ""))
             } else {
                 fields.insert(name, data);
             }

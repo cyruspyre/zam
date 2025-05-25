@@ -1,9 +1,10 @@
 use indexmap::IndexMap;
 
 use crate::{
-    parser::span::{Identifier, Span},
+    parser::span::Span,
     zam::{
         expression::term::Term,
+        identifier::Identifier,
         typ::{kind::TypeKind, Type},
     },
 };
@@ -21,7 +22,7 @@ impl Parser {
         }
 
         'main: loop {
-            let tmp = self.identifier(false)?;
+            let tmp = self.identifier(false, false)?;
 
             if tmp.is_empty() {
                 self.err_op(false, &[">", "<identifier>"])?

@@ -99,8 +99,8 @@ impl Parser {
                 return match buf.pop().unwrap() {
                     WTF::Exp(v) => Some(Term::Group(Expression::from(arr![
                         flatten(v),
-                        Term::Access(false),
-                        Term::Identifier("to_string".into()),
+                        Term::Access,
+                        "to_string".into(),
                         Term::Tuple(Vec::new()),
                     ]))),
                     WTF::Buf(data) => Some(Term::String { data, byte }),
@@ -108,12 +108,10 @@ impl Parser {
             }
 
             let mut stm = vec![Statement::Variable {
-                id: self.span("0".into()),
+                id: "0".into(),
                 data: Entity::Variable {
                     exp: Expression::from(arr![
-                        Term::Identifier("String".into()),
-                        Term::Access(true),
-                        Term::Identifier("with_capacity".into()),
+                        ["String", "with_capacity"].into(),
                         Term::Tuple(vec![Expression::from(arr![Term::Integer {
                             val: size,
                             bit: 64,
@@ -127,16 +125,13 @@ impl Parser {
             }];
 
             for v in buf {
-                let mut exp = Expression::from(arr![
-                    Term::Identifier("0".into()),
-                    Term::Assign(AssignKind::Add)
-                ]);
+                let mut exp = Expression::from(arr!["0".into(), Term::Assign(AssignKind::Add)]);
                 let tmp: &[Span<Term>] = match v {
                     WTF::Buf(data) => &self.lol([Term::String { data, byte }]),
                     WTF::Exp(v) => &self.lol([
                         flatten(v),
-                        Term::Access(false),
-                        Term::Identifier("to_string".into()),
+                        Term::Access,
+                        "to_string".into(),
                         Term::Tuple(Vec::new()),
                     ]),
                 };

@@ -1,17 +1,19 @@
-use std::{env::current_dir, path::PathBuf};
+use std::path::PathBuf;
 
 use block::{Block, BlockType};
 use expression::Expression;
 use fields::Fields;
+use identifier::Identifier;
 use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
 
-use crate::parser::{span::Identifier, Parser};
+use crate::parser::Parser;
 
 pub mod block;
 pub mod expression;
 mod external;
 pub mod fields;
+pub mod identifier;
 pub mod statement;
 pub mod typ;
 
@@ -53,11 +55,7 @@ impl Entity {
 
 impl Zam {
     pub fn parse(path: PathBuf) -> Option<Self> {
-        let mut parser = Parser::new(
-            path.strip_prefix(current_dir().unwrap())
-                .unwrap()
-                .to_path_buf(),
-        )?;
+        let mut parser = Parser::new(path)?;
 
         Some(Self {
             block: parser.block(BlockType::Global)?,

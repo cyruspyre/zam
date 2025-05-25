@@ -8,22 +8,22 @@ use indexmap::IndexMap;
 
 use crate::{
     misc::Bypass,
-    parser::{
-        log::{Log, Point},
-        span::Identifier,
-    },
+    parser::log::{Log, Point},
 };
 
-use super::{statement::Statement, typ::generic::Generic, Entity, Parser};
+use super::{
+    expression::misc::Range, identifier::Identifier, statement::Statement, typ::generic::Generic,
+    Entity, Parser,
+};
 
-pub(super) type Impls = IndexMap<Identifier, IndexMap<Identifier, Vec<(Generic, Block)>>>;
+pub type Impls = IndexMap<Identifier, IndexMap<Identifier, Vec<(Generic, Block)>>>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
     pub public: Vec<usize>,
     pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
-    pub impls: Impls,
+    pub impls: Option<Impls>,
 }
 
 #[derive(PartialEq)]
@@ -101,7 +101,7 @@ impl Parser {
                         continue 'one;
                     }
                     _ if typ == BlockType::Impl => break 'two,
-                    "struct" => self.strukt()?,
+                    "struct" => self.structure()?,
                     "let" | "cte" => match self.var(tmp == "cte")? {
                         Statement::Variable { id, data } => (id, data),
                         _ => unreachable!(),
@@ -117,9 +117,11 @@ impl Parser {
                 }
 
                 if let Some((prev, _)) = dec.get_key_value(&k) {
-                    dup.entry(k.data)
-                        .or_insert(vec![(prev.rng, Point::Error, "first declared here")])
-                        .push((k.rng, Point::Error, ""))
+                    let rng = k.rng();
+
+                    dup.entry(k)
+                        .or_insert(vec![(prev.rng(), Point::Error, "first declared here")])
+                        .push((rng, Point::Error, ""))
                 } else {
                     dec.insert(k, v);
                 }
@@ -128,7 +130,6 @@ impl Parser {
             }
 
             if not_local {
-                dbg!(self.idx, de, tmp);
                 self.err(format!("expected keyword of {typ} context"))?
             } else if stamp == de {
                 continue;
@@ -173,7 +174,7 @@ impl Parser {
         Some(Block {
             dec,
             stm,
-            impls,
+            impls: Some(impls),
             public,
         })
     }

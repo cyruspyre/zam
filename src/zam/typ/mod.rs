@@ -91,7 +91,7 @@ impl Parser {
 
         let tuple = self.skip_whitespace() == '(';
         let name = if !fun && !tuple {
-            self.identifier(true)
+            self.identifier(true, true)
         } else {
             None
         };
@@ -136,7 +136,7 @@ impl Parser {
         } else if tuple {
             TypeKind::Tuple(self.group()?)
         } else {
-            TypeKind::ID(name?.data)
+            TypeKind::ID(name?)
         };
 
         let mut null = 0;
