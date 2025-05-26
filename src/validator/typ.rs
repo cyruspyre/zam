@@ -9,12 +9,12 @@ use crate::{
     },
 };
 
-use super::{lookup::Lookup, Validator};
+use super::{lookup::Lookup, Project};
 
-impl Validator {
+impl Project {
     pub fn validate_type<'a>(&mut self, exp: &mut Expression, lookup: &mut Lookup) -> Option<()> {
         let kind = exp.typ.kind.bypass();
-        let cur = lookup.cur.bypass();
+        let cur = lookup.cur.parser.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 

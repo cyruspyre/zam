@@ -4,14 +4,14 @@ use crate::{
     zam::Entity,
 };
 
-use super::{lookup::Lookup, Validator};
+use super::{lookup::Lookup, Project};
 
-impl Validator {
+impl Project {
     pub fn r#struct<'a>(&mut self, val: &mut Entity, lookup: &mut Lookup<'a>) {
         let Entity::Struct { fields, .. } = val else {
             return;
         };
-        let cur = lookup.cur.bypass();
+        let cur = lookup.cur.parser.bypass();
 
         cur.ctx = Some(Context::Struct.span(cur.rng));
 

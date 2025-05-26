@@ -28,6 +28,10 @@ pub enum TypeKind {
         ret: Box<Type>,
     },
     Tuple(Vec<Type>),
+    Array {
+        typ: Box<Type>,
+        len: Option<usize>,
+    },
 }
 
 impl Display for TypeKind {
@@ -50,6 +54,13 @@ impl Display for TypeKind {
                 0 => "<float>".into(),
                 _ => format!("f{v}"),
             },
+            TypeKind::Array { typ, len } => format!(
+                "[{typ}{}]",
+                match len {
+                    Some(n) => format!("; {n}"),
+                    _ => String::new(),
+                }
+            ),
             TypeKind::Fn { arg, ret } => format!("fn({}) -> {ret}", join(arg)),
             TypeKind::Tuple(items) => join(items),
             TypeKind::ID(v) => v.to_string(),
@@ -64,7 +75,7 @@ impl Display for TypeKind {
 impl TypeKind {
     pub fn try_as_number(&mut self) -> Option<String> {
         let id = match self {
-            TypeKind::ID(id) if id.is_qualified() => id.leaf_name(),
+            TypeKind::ID(id) if !id.is_qualified() => id.leaf_name(),
             _ => return None,
         };
         let mut iter = id.chars();

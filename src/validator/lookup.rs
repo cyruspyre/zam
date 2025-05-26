@@ -18,21 +18,27 @@ use crate::{
     },
 };
 
-use super::Validator;
+use super::{Project, ZamID};
 
 pub struct Lookup<'a> {
-    pub cur: &'a mut Parser,
-    pub validator: &'a mut Validator,
+    pub(super) cur: Current<'a>,
+    pub validator: &'a mut Project,
     pub var: IndexMap<&'a Identifier, &'a mut Entity>,
     pub stack: Vec<&'a mut IndexMap<Identifier, Entity>>,
 }
 
+pub(super) struct Current<'a> {
+    pub id: &'a ZamID,
+    pub parser: &'a mut Parser,
+}
+
 impl<'a> Lookup<'a> {
     pub fn call(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
+        dbg!(&self.validator.srcs.keys());
         if id.is_qualified() {
             todo!("qualified identifier lookup")
         }
-        
+
         if let Some((_, k, v)) = self.var.bypass().get_full_mut(id) {
             return Some(Ok((*k, v.deref_mut().into())));
         }
@@ -87,7 +93,7 @@ impl<'a> Lookup<'a> {
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let cur = self.cur.bypass();
+        let cur = self.cur.parser.bypass();
         let validator = self.validator.bypass();
         let res = self.bypass().call(id);
         let Some(Ok((k, v))) = res else {
@@ -194,7 +200,7 @@ impl<'a> Lookup<'a> {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let cur = self.cur.bypass();
+        let cur = self.cur.parser.bypass();
 
         cur.rng = kind.rng;
 

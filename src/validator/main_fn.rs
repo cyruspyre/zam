@@ -5,9 +5,9 @@ use crate::{
     zam::{expression::misc::Range, Entity},
 };
 
-use super::Validator;
+use super::Project;
 
-impl Validator {
+impl Project {
     pub fn main_fn(&mut self) -> Option<()> {
         let src = self.srcs.get_mut(&self.cfg.pkg.name)?;
         let v = match src

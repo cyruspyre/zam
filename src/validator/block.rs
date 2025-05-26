@@ -3,9 +3,9 @@ use crate::{
     zam::{block::Block, expression::misc::Range, statement::Statement, Entity},
 };
 
-use super::{lookup::Lookup, Validator};
+use super::{lookup::Lookup, Project};
 
-impl Validator {
+impl Project {
     pub fn block(&mut self, block: &mut Block, lookup: &mut Lookup) {
         let dec = &mut block.dec;
         let Lookup {
@@ -15,7 +15,7 @@ impl Validator {
         stack.push(dec.bypass());
 
         for (id, val) in dec.bypass() {
-            cur.rng = id.rng();
+            cur.parser.rng = id.rng();
 
             match val {
                 //Entity::Type { typ, public } => todo!(),

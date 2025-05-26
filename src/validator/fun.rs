@@ -1,8 +1,8 @@
 use crate::zam::Entity;
 
-use super::{lookup::Lookup, Validator};
+use super::{lookup::Lookup, Project};
 
-impl Validator {
+impl Project {
     pub fn fun(&mut self, val: &mut Entity, lookup: &mut Lookup) {
         let Entity::Function {
             arg, ret, block, ..
