@@ -11,7 +11,7 @@ impl Project {
         let Entity::Struct { fields, .. } = val else {
             return;
         };
-        let cur = lookup.cur.parser.bypass();
+        let cur = lookup.cur.zam.parser.bypass();
 
         cur.ctx = Some(Context::Struct.span(cur.rng));
 

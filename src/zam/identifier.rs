@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::parser::{
     log::{Log, Point},
@@ -8,7 +8,7 @@ use crate::parser::{
 
 use super::expression::misc::Range;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Identifier(Vec<Span<String>>);
 
 impl Identifier {
@@ -49,17 +49,25 @@ impl<S: AsRef<str>, const N: usize> From<[S; N]> for Identifier {
     }
 }
 
+impl Debug for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(&format!("\"{self}\""))
+    }
+}
+
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut buf = String::new();
         let tmp = &self.0;
 
-        for i in 0..tmp.len() - 1 {
+        for i in 0..tmp.len().checked_sub(1).unwrap_or_default() {
             buf += &tmp[i];
             buf += "::";
         }
 
-        buf += tmp.last().unwrap();
+        if let Some(v) = tmp.last() {
+            buf += v
+        }
 
         f.write_str(&buf)
     }

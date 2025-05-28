@@ -1,9 +1,9 @@
 mod init;
 mod zam;
 
-use std::path::PathBuf;
+use std::{num::NonZeroUsize, path::PathBuf};
 
-use clap::{arg, builder::PathBufValueParser, Command};
+use clap::{arg, builder::PathBufValueParser, value_parser, Command};
 use init::init;
 use zam::zam;
 
@@ -15,6 +15,8 @@ pub fn start() {
         .value_parser(PathBufValueParser::new())
         .hide_default_value(true);
     let release = arg!(-r --release "Build and run in release mode");
+    let jobs = arg!(-j --jobs <N> "Number of parallel jobs, defaults to # of CPUs")
+        .value_parser(value_parser!(NonZeroUsize));
     let (name, mut cmd) = Command::new("zam")
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
@@ -28,18 +30,19 @@ pub fn start() {
                         .default_value_if("lib", "true", "false"),
                     arg!(--lib "Use library template"),
                 ]),
-            Command::new("run").about("Run a file or a project").args([
-                &path,
-                &release,
-                &arg!(-a --aot "Build and run in AOT mode")
-                    .default_value_if("release", "true", "true"),
-            ]),
+            Command::new("run")
+                .about("Run a file or a project")
+                .args([&path, &release, &jobs])
+                .arg(
+                    arg!(-a --aot "Build and run in AOT mode")
+                        .default_value_if("release", "true", "true"),
+                ),
             Command::new("check")
                 .about("Analyze a file or a project")
-                .arg(&path),
+                .args([&path, &jobs]),
             Command::new("build")
                 .about("Build a file or a project")
-                .args([path, release]),
+                .args([path, release, jobs]),
         ])
         .get_matches()
         .remove_subcommand()

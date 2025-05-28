@@ -5,7 +5,7 @@ use std::{fs::read_to_string, path::PathBuf, process::exit};
 use serde::{de::Visitor, Deserialize, Deserializer};
 use toml::de::Error;
 
-use crate::{err, parser::Parser, validator::ZamID};
+use crate::{err, parser::Parser};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -35,7 +35,7 @@ impl Config {
 
 #[derive(Debug, Deserialize)]
 pub struct Package {
-    pub name: ZamID,
+    pub name: String,
     #[serde(rename = "type", deserialize_with = "pkg_type")]
     pub typ: Vec<PackageType>,
 }

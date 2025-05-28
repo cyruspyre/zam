@@ -14,7 +14,7 @@ use super::{lookup::Lookup, Project};
 impl Project {
     pub fn validate_type<'a>(&mut self, exp: &mut Expression, lookup: &mut Lookup) -> Option<()> {
         let kind = exp.typ.kind.bypass();
-        let cur = lookup.cur.parser.bypass();
+        let cur = lookup.cur.zam.parser.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 

@@ -15,7 +15,7 @@ impl Project {
         stack.push(dec.bypass());
 
         for (id, val) in dec.bypass() {
-            cur.parser.rng = id.rng();
+            cur.zam.parser.rng = id.rng();
 
             match val {
                 //Entity::Type { typ, public } => todo!(),

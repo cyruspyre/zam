@@ -1,6 +1,14 @@
 use std::path::PathBuf;
 
-use crate::{cfg::Config, err, misc::Bypass, zam::Zam};
+use indexmap::IndexMap;
+
+use crate::{
+    cfg::Config,
+    err,
+    misc::{Bypass, Ref},
+    project::Project,
+    zam::{identifier::Identifier, Zam},
+};
 
 pub fn zam(mut path: PathBuf, cfg: Config) {
     if !path.exists() {
@@ -13,7 +21,21 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
 
     path.push("src");
 
-    let mut root = Zam::parse(path.join("main.z"), true);
+    let mut impls: IndexMap<Identifier, IndexMap<_, _>> = IndexMap::new();
+    let mut parse = |path: PathBuf, required: bool| {
+        let mut zam = Zam::parse(path, required);
+
+        while let Some((key, v)) = zam.block.impls.pop() {
+            impls
+                .entry(key)
+                .or_default()
+                .entry(Ref(zam.parser.path.as_path()))
+                .or_insert(v);
+        }
+
+        zam
+    };
+    let mut root = parse(path.join("main.z"), true); //Zam::parse(path.join("main.z"), true);
     let mut stack = Vec::from([(path, &mut root.mods, None)]);
 
     while let Some((cur, mods, remover)) = stack.pop() {
@@ -32,7 +54,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
             };
 
             if typ.is_dir() {
-                let zam = Zam::parse(path.join("mod.z"), false);
+                let zam = parse(path.join("mod.z"), false);
                 let mut entry = mods.bypass().entry(key).insert_entry(zam);
                 let parent = mods.bypass();
 
@@ -56,7 +78,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
                 continue;
             }
 
-            mods.insert(key, Zam::parse(path, true));
+            mods.insert(key, parse(path, true));
         }
 
         // omit directories with empty zam src files
@@ -67,19 +89,5 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
         }
     }
 
-    let mut tmp = vec![&mut root.mods];
-
-    while let Some(v) = tmp.pop() {
-        dbg!(v.keys());
-
-        for (k, v) in v {
-            let v = &mut v.mods;
-
-            if !v.is_empty() {
-                tmp.push(v);
-            }
-        }
-    }
-
-    // Project { cfg, srcs, impls }.validate(err)
+    Project { cfg, root, impls }.validate();
 }

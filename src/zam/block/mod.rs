@@ -23,7 +23,7 @@ pub struct Block {
     pub public: Vec<usize>,
     pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
-    pub impls: Option<Impls>,
+    pub impls: Impls,
 }
 
 #[derive(PartialEq)]
@@ -174,7 +174,7 @@ impl Parser {
         Some(Block {
             dec,
             stm,
-            impls: Some(impls),
+            impls,
             public,
         })
     }

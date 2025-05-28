@@ -7,7 +7,7 @@ mod cfg;
 mod cli;
 mod misc;
 mod parser;
-mod validator;
+mod project;
 mod zam;
 
 use cli::start;

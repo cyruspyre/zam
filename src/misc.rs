@@ -1,4 +1,7 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
 pub type Result<T> = std::result::Result<T, T>;
 
@@ -29,14 +32,20 @@ impl<T> Either<T> for Result<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Ref<T>(pub *const T);
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Ref<T: ?Sized>(pub *const T);
 
 impl<T> Deref for Ref<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.0 }
+    }
+}
+
+impl<T: Debug + ?Sized> Debug for Ref<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unsafe { (*self.0).fmt(f) }
     }
 }
 

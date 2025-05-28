@@ -8,33 +8,31 @@ use crate::{
     parser::{
         log::{Log, Point},
         span::Span,
-        Parser,
     },
     zam::{
         expression::{misc::Range, term::Term},
         identifier::Identifier,
         typ::kind::TypeKind,
-        Entity,
+        Entity, Zam,
     },
 };
 
-use super::{Project, ZamID};
+use super::Project;
 
 pub struct Lookup<'a> {
     pub(super) cur: Current<'a>,
-    pub validator: &'a mut Project,
+    pub project: &'a mut Project,
     pub var: IndexMap<&'a Identifier, &'a mut Entity>,
     pub stack: Vec<&'a mut IndexMap<Identifier, Entity>>,
 }
 
 pub(super) struct Current<'a> {
-    pub id: &'a ZamID,
-    pub parser: &'a mut Parser,
+    pub id: &'a String,
+    pub zam: &'a mut Zam,
 }
 
 impl<'a> Lookup<'a> {
     pub fn call(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
-        dbg!(&self.validator.srcs.keys());
         if id.is_qualified() {
             todo!("qualified identifier lookup")
         }
@@ -93,8 +91,8 @@ impl<'a> Lookup<'a> {
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let cur = self.cur.parser.bypass();
-        let validator = self.validator.bypass();
+        let cur = self.cur.zam.parser.bypass();
+        let validator = self.project.bypass();
         let res = self.bypass().call(id);
         let Some(Ok((k, v))) = res else {
             let mut pnt = Vec::new();
@@ -200,7 +198,7 @@ impl<'a> Lookup<'a> {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let cur = self.cur.parser.bypass();
+        let cur = self.cur.zam.parser.bypass();
 
         cur.rng = kind.rng;
 
