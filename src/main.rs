@@ -1,5 +1,6 @@
 #![feature(never_type)]
 #![feature(let_chains)]
+#![feature(if_let_guard)]
 #![deny(unused_must_use)]
 
 mod cfg;

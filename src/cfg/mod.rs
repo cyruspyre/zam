@@ -1,14 +1,11 @@
 mod misc;
 
-use std::{path::PathBuf, process::exit};
+use std::{fs::read_to_string, path::PathBuf, process::exit};
 
 use serde::{de::Visitor, Deserialize, Deserializer};
 use toml::de::Error;
 
-use crate::{
-    parser::{misc::read_file, Parser},
-    validator::ZamID,
-};
+use crate::{err, parser::Parser, validator::ZamID};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -20,7 +17,13 @@ pub struct Config {
 
 impl Config {
     pub fn load(path: PathBuf) -> Config {
-        let data = read_file(&path);
+        let Ok(data) = read_to_string(&path) else {
+            err!(
+                "couldn't find `{}` in `{}`",
+                path.file_name().unwrap().to_string_lossy(),
+                path.parent().unwrap().display()
+            )
+        };
         let toml: Config = match toml::from_str(&data) {
             Ok(v) => v,
             Err(err) => map_err(path, data, err),

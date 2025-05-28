@@ -22,7 +22,7 @@ use crate::{
     zam::{block::Impls, Zam},
 };
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ZamID(Vec<String>);
 
 impl<'a> Deserialize<'a> for ZamID {
@@ -68,6 +68,7 @@ impl Display for ZamID {
 
 pub struct Project {
     pub cfg: Config,
+    pub root: Zam,
     pub srcs: IndexMap<ZamID, Zam>,
     pub impls: IndexMap<Ref<ZamID>, Impls>,
 }

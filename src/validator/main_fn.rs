@@ -8,8 +8,8 @@ use crate::{
 use super::Project;
 
 impl Project {
-    pub fn main_fn(&mut self) -> Option<()> {
-        let src = self.srcs.get_mut(&self.cfg.pkg.name)?;
+    pub fn main_fn(&mut self) {
+        let src = &mut self.root;
         let v = match src
             .block
             .dec
@@ -22,7 +22,7 @@ impl Project {
                 Point::Info,
                 match data {
                     Entity::Function { .. } => match sim {
-                        1.0 => return Some(()),
+                        1.0 => return,
                         _ => "did you mean `main`?",
                     },
                     _ => match sim {
@@ -36,7 +36,5 @@ impl Project {
 
         src.parser
             .log(&mut [v], Log::Error, "expected `main` function", "");
-
-        None
     }
 }

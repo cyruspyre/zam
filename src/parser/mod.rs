@@ -6,7 +6,7 @@ pub mod span;
 use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
 
 use log::{Log, Point};
-use misc::{read_file, CharExt};
+use misc::CharExt;
 use span::Span;
 
 use crate::misc::{Either, Result};
@@ -30,22 +30,6 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(path: PathBuf) -> Option<Self> {
-        let data = read_file(&path).chars().collect();
-
-        Some(Self {
-            data,
-            path,
-            line: Vec::new(),
-            err: 0,
-            rng: [0; 2],
-            idx: usize::MAX,
-            ctx: None,
-            ignore: false,
-            de: VecDeque::new(),
-        })
-    }
-
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.idx == self.data.len() - 1

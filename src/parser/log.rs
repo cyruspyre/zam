@@ -45,9 +45,20 @@ impl Parser {
             self.err += 1
         }
 
+        let mut io = BufWriter::new(stderr().lock());
+        let typ = match typ {
+            Log::Error => "error".red(),
+            Log::Warning => "warning".bright_yellow(),
+        };
+
+        io.write(format!("{typ}: {msg}\n").as_bytes()).unwrap();
+
+        if pnt.is_empty() {
+            return io.flush().unwrap();
+        }
+
         pnt.sort_unstable_by_key(|v| v.0[0]);
 
-        let mut io = BufWriter::new(stderr().lock());
         let mut iter = pnt.bypass().into_iter().peekable();
         let mut val = None;
         let line = |n: usize| {
@@ -62,14 +73,10 @@ impl Parser {
         };
         let pad = line(pnt.last().unwrap().0[0]);
         let border = format!("{} {}", " ".repeat(pad), "-".black());
-        let typ = match typ {
-            Log::Error => "error".red(),
-            Log::Warning => "warning".bright_yellow(),
-        };
         let first = pnt[0].0[0];
         let tmp = self.line.binary_search(&first).either();
         let buf = format!(
-            "{typ}: {msg}\n{}{} {}:{}:{}\n",
+            "{}{} {}:{}:{}\n",
             " ".repeat(pad),
             "-->".black(),
             self.path.display(),

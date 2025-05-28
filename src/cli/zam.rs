@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use indexmap::IndexMap;
-
-use crate::{cfg::Config, err, misc::Ref, validator::Project, zam::Zam};
+use crate::{cfg::Config, err, misc::Bypass, zam::Zam};
 
 pub fn zam(mut path: PathBuf, cfg: Config) {
     if !path.exists() {
@@ -13,65 +11,75 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
         err!("path isn't a directory")
     }
 
-    let pkg = &cfg.pkg.name;
-
     path.push("src");
 
-    let mut stack = vec![path.clone()];
-    let mut srcs = IndexMap::new();
-    let mut impls = IndexMap::new();
-    let mut err = 0;
+    let mut root = Zam::parse(path.join("main.z"), true);
+    let mut stack = Vec::from([(path, &mut root.mods, None)]);
 
-    while let Some(v) = stack.pop() {
-        let stamp = srcs.len();
-        let mut tmp = Vec::new();
-        let mut entries = v.read_dir().unwrap();
+    while let Some((cur, mods, remover)) = stack.pop() {
+        let Ok(mut entries) = cur.read_dir() else {
+            continue;
+        };
+        let stamp = mods.len();
 
-        'tmp: while let Some(Ok(entry)) = entries.next() {
-            let typ = entry.file_type().unwrap();
-            let src = entry.path();
-
-            if typ.is_dir() {
-                tmp.push(src);
-                continue;
-            } else if !typ.is_file() || !src.extension().is_some_and(|v| v == "z") {
-                continue;
-            }
-
-            let mut key = pkg.clone();
-
-            if entry.file_name() != "main.z" || path != src.parent().unwrap() {
-                let mut tmp = src.strip_prefix(&path).unwrap().with_extension("");
-
-                if entry.file_name() == "mod.z" {
-                    tmp.pop();
-                }
-
-                for v in &tmp {
-                    let Some(v) = v.to_str() else {
-                        continue 'tmp;
-                    };
-
-                    key.push(v.to_string());
-                }
-            }
-
-            let mut value = match Zam::parse(src) {
-                Some(v) => v,
-                _ => {
-                    err += 1;
-                    continue;
-                }
+        while let Some(res) = entries.next() {
+            let Ok(entry) = res else { continue };
+            let Ok(typ) = entry.file_type() else { continue };
+            let path = entry.path();
+            let key = match path.with_extension("").file_name() {
+                Some(v) if let Some(v) = v.to_str() => v.to_string(),
+                _ => continue,
             };
 
-            impls.insert(Ref(&key), value.block.impls.take().unwrap());
-            srcs.insert(key, value);
+            if typ.is_dir() {
+                let zam = Zam::parse(path.join("mod.z"), false);
+                let mut entry = mods.bypass().entry(key).insert_entry(zam);
+                let parent = mods.bypass();
+
+                stack.push((
+                    path,
+                    entry.get_mut().mods.bypass(),
+                    Some(move || {
+                        parent.swap_remove(entry.key());
+                    }),
+                ));
+                continue;
+            }
+
+            if !typ.is_file()
+                || *match entry.file_name().to_str() {
+                    Some("main.z") => &path,
+                    Some("mod.z") => &root.parser.path,
+                    _ => &cur,
+                } == path
+            {
+                continue;
+            }
+
+            mods.insert(key, Zam::parse(path, true));
         }
 
-        if stamp != srcs.len() {
-            stack.extend(tmp);
+        // omit directories with empty zam src files
+        if mods.len() == stamp
+            && let Some(mut fun) = remover
+        {
+            fun()
         }
     }
 
-    Project { cfg, srcs, impls }.validate(err)
+    let mut tmp = vec![&mut root.mods];
+
+    while let Some(v) = tmp.pop() {
+        dbg!(v.keys());
+
+        for (k, v) in v {
+            let v = &mut v.mods;
+
+            if !v.is_empty() {
+                tmp.push(v);
+            }
+        }
+    }
+
+    // Project { cfg, srcs, impls }.validate(err)
 }

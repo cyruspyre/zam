@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs::read_to_string, path::PathBuf};
 
 use block::{Block, BlockType};
 use expression::Expression;
@@ -7,7 +7,7 @@ use identifier::Identifier;
 use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
 
-use crate::parser::Parser;
+use crate::parser::{log::Log, Parser};
 
 pub mod block;
 pub mod expression;
@@ -17,9 +17,11 @@ pub mod identifier;
 pub mod statement;
 pub mod typ;
 
+#[derive(Default)]
 pub struct Zam {
     pub parser: Parser,
     pub block: Block,
+    pub mods: IndexMap<String, Zam>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,12 +56,31 @@ impl Entity {
 }
 
 impl Zam {
-    pub fn parse(path: PathBuf) -> Option<Self> {
-        let mut parser = Parser::new(path)?;
+    pub fn parse(path: PathBuf, required: bool) -> Self {
+        let res = read_to_string(&path);
+        let err = res.is_err();
+        let mut parser = Parser {
+            data: res.unwrap_or_default().chars().collect(),
+            path,
+            idx: usize::MAX,
+            ..Default::default()
+        };
 
-        Some(Self {
-            block: parser.block(BlockType::Global)?,
+        if err && required {
+            let path = &parser.path;
+            let msg = format!(
+                "couldn't find `{}` in `{}`",
+                path.file_name().unwrap().display(),
+                path.parent().unwrap().display()
+            );
+
+            parser.log::<&str, _, _>(&mut [], Log::Error, msg, "");
+        }
+
+        Self {
+            mods: IndexMap::new(),
+            block: parser.block(BlockType::Global).unwrap_or_default(),
             parser,
-        })
+        }
     }
 }
