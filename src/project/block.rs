@@ -1,53 +1,49 @@
 use crate::{
-    misc::Bypass,
-    zam::{block::Block, expression::misc::Range, statement::Statement, Entity},
+    misc::{Bypass, Ref, RefMut},
+    zam::{block::Block, expression::misc::Range, statement::Statement, Entity, Lookup, Zam},
 };
 
-use super::{lookup::Lookup, Project};
-
-impl Project {
-    pub fn block(&mut self, block: &mut Block, lookup: &mut Lookup) {
+impl Zam {
+    pub fn block(&mut self, block: &mut Block) {
         let dec = &mut block.dec;
-        let Lookup {
-            var, stack, cur, ..
-        } = lookup.bypass();
+        let Lookup { vars, decs } = self.lookup.bypass();
 
-        stack.push(dec.bypass());
+        decs.push(RefMut(dec.bypass()));
 
         for (id, val) in dec.bypass() {
-            cur.zam.parser.rng = id.rng();
+            self.parser.rng = id.rng();
 
             match val {
                 //Entity::Type { typ, public } => todo!(),
-                Entity::Variable { .. } => self.variable(val, lookup),
-                Entity::Struct { .. } => self.r#struct(val, lookup),
-                Entity::Function { .. } => self.fun(val, lookup),
+                Entity::Variable { .. } => self.variable(val),
+                Entity::Struct { .. } => self.r#struct(val),
+                Entity::Function { .. } => self.fun(val),
             }
         }
 
-        let len = var.len();
+        let len = vars.len();
 
         for v in &mut block.stm {
             match v {
                 Statement::Variable { id, data } => {
-                    self.variable(data, lookup);
-                    var.insert(id.bypass(), data.bypass());
+                    self.variable(data);
+                    vars.insert(Ref(id.bypass()), RefMut(data.bypass()));
                 }
                 Statement::Conditional { cond, default } => {
                     for (exp, block) in cond {
-                        self.validate_type(exp, lookup);
-                        self.block(block, lookup);
+                        self.validate_type(exp);
+                        self.block(block);
                     }
 
                     if let Some(block) = default {
-                        self.block(block, lookup);
+                        self.block(block);
                     }
                 }
                 v => todo!("Statement::{v:?}"),
             }
         }
 
-        stack.pop();
-        var.truncate(len);
+        decs.pop();
+        vars.truncate(len);
     }
 }

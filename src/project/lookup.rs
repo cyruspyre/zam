@@ -1,6 +1,5 @@
 use std::{borrow::Cow, collections::VecDeque, ops::DerefMut};
 
-use indexmap::IndexMap;
 use strsim::jaro;
 
 use crate::{
@@ -17,47 +16,48 @@ use crate::{
     },
 };
 
-use super::Project;
+impl Zam {
+    pub fn lookup(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
+        let mut zam = self.bypass();
 
-pub struct Lookup<'a> {
-    pub(super) cur: Current<'a>,
-    pub project: &'a mut Project,
-    pub var: IndexMap<&'a Identifier, &'a mut Entity>,
-    pub stack: Vec<&'a mut IndexMap<Identifier, Entity>>,
-}
+        for key in id.iter() {
+            let Some(next) = zam.mods.get_mut(&key.data) else {
+                break;
+            };
 
-pub(super) struct Current<'a> {
-    pub id: &'a String,
-    pub zam: &'a mut Zam,
-}
-
-impl<'a> Lookup<'a> {
-    pub fn call(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
-        if id.is_qualified() {
-            todo!("qualified identifier lookup")
+            zam = next
         }
 
-        if let Some((_, k, v)) = self.var.bypass().get_full_mut(id) {
-            return Some(Ok((*k, v.deref_mut().into())));
+        let lookup = zam.lookup.bypass();
+        let id = id.leaf_name();
+
+        if let Some((_, k, v)) = lookup.vars.bypass().get_full_mut(id) {
+            return Some(Ok((k, v.deref_mut().into())));
         }
 
-        let mut one = self.var.iter_mut().map(|(k, v)| (*k, v.deref_mut()));
+        let mut one = lookup.vars.iter_mut().map(|(k, v)| (&*k, v.deref_mut()));
         let mut two = VecDeque::new();
+        let mut iter = lookup.decs.iter_mut();
+        let mut tmp = match iter.next() {
+            Some(v) => Some(v),
+            _ => Some(RefMut(&mut zam.block.dec).bypass()),
+        };
 
-        for dec in self.stack.deref_mut() {
+        while let Some(dec) = tmp.take() {
             if let Some((_, k, v)) = dec.bypass().get_full_mut(id) {
                 return Some(Ok((k, v.into())));
             }
 
             two.push_back(dec.iter_mut().map(|(k, v)| (k, v)));
+            tmp = iter.next();
         }
 
         let mut res: (f64, Option<(&Identifier, &mut Entity)>) = (0.0, None);
-        let mut tmp = None;
+        let mut tmp: Option<(&Identifier, _)> = None;
 
         loop {
-            if let Some(v) = one.next() {
-                tmp = Some(v)
+            if let Some((k, v)) = one.next() {
+                tmp = Some((&k, v))
             } else if let Some(v) = two.front_mut() {
                 if let Some(v) = v.next() {
                     tmp = Some(v);
@@ -67,7 +67,7 @@ impl<'a> Lookup<'a> {
             }
 
             if let Some((k, v)) = tmp.take() {
-                let sim = jaro(id.leaf_name(), k.leaf_name());
+                let sim = jaro(id, k.leaf_name());
 
                 if sim > res.0 {
                     res = (sim, Some((k, v)))
@@ -87,14 +87,13 @@ impl<'a> Lookup<'a> {
         }
     }
 
-    pub fn as_typ<F>(&mut self, id: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
+    pub fn as_typ<'a, F>(&mut self, id: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let cur = self.cur.zam.parser.bypass();
-        let validator = self.project.bypass();
-        let res = self.bypass().call(id);
-        let Some(Ok((k, v))) = res else {
+        let cur = self.parser.bypass();
+        let res = self.bypass().lookup(id);
+        let Some(Ok((k, val))) = res else {
             let mut pnt = Vec::new();
 
             if let Some(Err((k, v))) = res {
@@ -115,16 +114,17 @@ impl<'a> Lookup<'a> {
             return None;
         };
 
-        let typ = match v.bypass() {
+        let typ = match val.bypass() {
             Entity::Variable { exp, done, .. } => 'a: {
                 if *done && exp.typ.kind.data == TypeKind::Unknown {
                     break 'a Cow::Owned(TypeKind::Unknown);
                 }
 
-                validator.variable(v, self);
+                self.variable(val);
                 Cow::Borrowed(&exp.typ.kind.data)
             }
             Entity::Struct {
+                done,
                 gen,
                 fields,
                 impls,
@@ -136,11 +136,13 @@ impl<'a> Lookup<'a> {
                 let mut pnt = Vec::new();
                 let err = cur.err;
 
+                self.r#struct(val);
+
                 for (k, exp) in &mut *vals {
                     if let Some(v) = fields.get(k) {
                         exp.typ = v.clone();
                         exp.typ.kind.rng.fill(0);
-                        validator.validate_type(exp, self)?
+                        self.validate_type(exp)?
                     } else {
                         pnt.push((k.rng(), Point::Error, ""));
                     }
@@ -188,7 +190,7 @@ impl<'a> Lookup<'a> {
 
                 Cow::Owned(TypeKind::Entity {
                     id: Ref(k),
-                    data: RefMut(v),
+                    data: RefMut(val),
                 })
             }
             v => todo!("Entity::{v:?}"),
@@ -198,14 +200,22 @@ impl<'a> Lookup<'a> {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let cur = self.cur.zam.parser.bypass();
+        let cur = self.parser.bypass();
 
         cur.rng = kind.rng;
 
-        let TypeKind::ID(id) = kind.data.bypass() else {
+        let kind = &mut kind.data;
+        let TypeKind::ID(id) = kind.bypass() else {
+            if let TypeKind::Tuple(v) = kind {
+                for typ in v {
+                    self.typ(&mut typ.kind)
+                }
+            }
+
             return;
         };
-        let res = self.call(id);
+
+        let res = self.lookup(id);
         let mut label = None;
 
         if matches!(res, None | Some(Err(_)))
@@ -213,7 +223,7 @@ impl<'a> Lookup<'a> {
                 label = kind.try_as_number();
                 label.is_none()
             }
-            && !matches!(kind.data, TypeKind::ID(_))
+            && !matches!(kind, TypeKind::ID(_))
         {
             return;
         }
@@ -235,7 +245,7 @@ impl<'a> Lookup<'a> {
             Entity::Variable { .. } => "variable",
             Entity::Function { .. } => "function",
             Entity::Struct { .. } if ok => {
-                return kind.data = TypeKind::Entity {
+                return *kind = TypeKind::Entity {
                     id: Ref(k),
                     data: RefMut(v),
                 };
@@ -275,7 +285,7 @@ impl<'a> Lookup<'a> {
             _ => "",
         };
 
-        pnt.push((kind.rng, Point::Error, label));
+        pnt.push((cur.rng, Point::Error, label));
 
         return cur.log(&mut pnt, Log::Error, msg, note);
     }

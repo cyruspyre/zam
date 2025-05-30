@@ -7,8 +7,6 @@ use std::{
 
 use super::Parser;
 
-//pub type Identifier = Span<String>;
-
 #[derive(Clone)]
 pub struct Span<T> {
     pub rng: [usize; 2],
@@ -80,7 +78,7 @@ impl<T: Debug> Debug for Span<T> {
 
 impl<T: Display> Display for Span<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        Display::fmt(&self.data, f)
+        self.data.fmt(f)
     }
 }
 

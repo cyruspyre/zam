@@ -1,9 +1,7 @@
-use crate::zam::Entity;
+use crate::zam::{Entity, Zam};
 
-use super::{lookup::Lookup, Project};
-
-impl Project {
-    pub fn fun(&mut self, val: &mut Entity, lookup: &mut Lookup) {
+impl Zam {
+    pub fn fun(&mut self, val: &mut Entity) {
         let Entity::Function {
             arg, ret, block, ..
         } = val
@@ -12,13 +10,13 @@ impl Project {
         };
 
         for v in arg.values_mut() {
-            lookup.typ(&mut v.kind);
+            self.typ(&mut v.kind);
         }
 
-        lookup.typ(&mut ret.kind);
+        self.typ(&mut ret.kind);
 
         if let Some(v) = &mut *block {
-            self.block(v, lookup);
+            self.block(v);
         }
     }
 }

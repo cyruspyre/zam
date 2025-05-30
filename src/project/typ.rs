@@ -6,15 +6,21 @@ use crate::{
     zam::{
         expression::{misc::Range, term::Term, Expression},
         typ::{kind::TypeKind, Type},
+        Zam,
     },
 };
 
-use super::{lookup::Lookup, Project};
-
-impl Project {
-    pub fn validate_type<'a>(&mut self, exp: &mut Expression, lookup: &mut Lookup) -> Option<()> {
+impl Zam {
+    pub fn validate_type<'a>(&mut self, exp: &mut Expression) -> Option<()> {
         let kind = exp.typ.kind.bypass();
-        let cur = lookup.cur.zam.parser.bypass();
+
+        debug_assert!(
+            !matches!(kind.data, TypeKind::ID(_)),
+            "expression `{exp}` expects a raw type id `{kind}` at {}",
+            self.location(exp.data.rng())
+        );
+
+        let cur = self.parser.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 
@@ -29,7 +35,7 @@ impl Project {
                     null,
                     ..
                 }) => {
-                    lookup.typ(kind);
+                    self.typ(kind);
 
                     if !matches!(
                         kind.data,
@@ -53,10 +59,30 @@ impl Project {
                     _ => cur.err("expected a term beforehand")?,
                 },
                 // todo: find a way to apply inferred type to used variables in an expr
-                Term::Identifier(id) => lookup.bypass().as_typ(id, || match iter.next() {
+                Term::Identifier(id) => self.bypass().as_typ(id, || match iter.next() {
                     Some(v) => Some(&mut v.1.data),
                     _ => None,
                 })?,
+                Term::Tuple(vals) => {
+                    let mut buf = Vec::with_capacity(vals.len());
+                    let a = match &kind.data {
+                        TypeKind::Tuple(v) => Some(v),
+                        _ => None,
+                    };
+
+                    for (i, exp) in vals.iter_mut().enumerate() {
+                        if let Some(v) = a {
+                            if let Some(typ) = v.get(i) {
+                                exp.typ = typ.clone()
+                            }
+                        }
+
+                        self.validate_type(exp);
+                        buf.push(exp.typ.clone());
+                    }
+
+                    Cow::Owned(TypeKind::Tuple(buf))
+                }
                 v => todo!("Term::{v:?}"),
             };
             let typ = match &mut typ {

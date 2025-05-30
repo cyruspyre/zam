@@ -1,9 +1,16 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    borrow::Borrow,
+    fmt::{self, Debug, Display, Formatter},
+    ops::{Deref, DerefMut},
+};
 
-use crate::parser::{
-    log::{Log, Point},
-    span::{Span, ToSpan},
-    Parser,
+use crate::{
+    misc::Ref,
+    parser::{
+        log::{Log, Point},
+        span::{Span, ToSpan},
+        Parser,
+    },
 };
 
 use super::expression::misc::Range;
@@ -22,6 +29,32 @@ impl Identifier {
 
     pub fn is_qualified(&self) -> bool {
         self.0.len() > 1
+    }
+}
+
+impl Deref for Identifier {
+    type Target = Vec<Span<String>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Identifier {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Borrow<Span<String>> for Identifier {
+    fn borrow(&self) -> &Span<String> {
+        self.leaf_name()
+    }
+}
+
+impl Borrow<Span<String>> for Ref<Identifier> {
+    fn borrow(&self) -> &Span<String> {
+        self.leaf_name()
     }
 }
 

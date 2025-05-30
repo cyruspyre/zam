@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use indexmap::IndexMap;
+use threadpool::ThreadPool;
 
 use crate::{
     cfg::Config,
@@ -10,7 +11,7 @@ use crate::{
     zam::{identifier::Identifier, Zam},
 };
 
-pub fn zam(mut path: PathBuf, cfg: Config) {
+pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
     if !path.exists() {
         err!("path does not exist")
     }
@@ -22,8 +23,10 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
     path.push("src");
 
     let mut impls: IndexMap<Identifier, IndexMap<_, _>> = IndexMap::new();
-    let mut parse = |path: PathBuf, required: bool| {
+    let mut parse = |path: PathBuf, required: bool, id: Ref<String>| {
         let mut zam = Zam::parse(path, required);
+
+        zam.id = id;
 
         while let Some((key, v)) = zam.block.impls.pop() {
             impls
@@ -35,7 +38,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
 
         zam
     };
-    let mut root = parse(path.join("main.z"), true); //Zam::parse(path.join("main.z"), true);
+    let mut root = parse(path.join("main.z"), true, Ref(&cfg.pkg.name));
     let mut stack = Vec::from([(path, &mut root.mods, None)]);
 
     while let Some((cur, mods, remover)) = stack.pop() {
@@ -52,9 +55,10 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
                 Some(v) if let Some(v) = v.to_str() => v.to_string(),
                 _ => continue,
             };
+            let id = Ref(&key);
 
             if typ.is_dir() {
-                let zam = parse(path.join("mod.z"), false);
+                let zam = parse(path.join("mod.z"), false, id);
                 let mut entry = mods.bypass().entry(key).insert_entry(zam);
                 let parent = mods.bypass();
 
@@ -78,7 +82,7 @@ pub fn zam(mut path: PathBuf, cfg: Config) {
                 continue;
             }
 
-            mods.insert(key, parse(path, true));
+            mods.insert(key, parse(path, true, id));
         }
 
         // omit directories with empty zam src files

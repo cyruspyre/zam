@@ -2,6 +2,7 @@ mod block;
 mod fun;
 pub mod lookup;
 mod main_fn;
+mod misc;
 mod r#struct;
 mod typ;
 mod variable;
@@ -9,7 +10,6 @@ mod variable;
 use std::path::Path;
 
 use indexmap::IndexMap;
-use lookup::{Current, Lookup};
 
 use crate::{
     cfg::Config,
@@ -29,27 +29,16 @@ impl Project {
     pub fn validate(mut self) {
         self.main_fn();
 
-        let tmp = self.bypass();
-        let name = &tmp.cfg.pkg.name;
+        let name = &self.cfg.pkg.name;
         let mut err = 0;
-        let mut stack = vec![(name, &mut tmp.root)];
+        let mut stack = vec![&mut self.root];
 
-        while let Some((id, zam)) = stack.pop() {
-            let mut lookup = Lookup {
-                project: self.bypass(),
-                cur: Current {
-                    id,
-                    zam: zam.bypass(),
-                },
-                var: IndexMap::new(),
-                stack: Vec::new(),
-            };
-
-            self.block(&mut zam.block, &mut lookup);
+        while let Some(zam) = stack.pop() {
+            zam.bypass().block(&mut zam.block);
 
             err += zam.parser.err;
 
-            for v in &mut zam.mods {
+            for v in zam.mods.values_mut() {
                 stack.push(v);
             }
         }

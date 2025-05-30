@@ -1,9 +1,7 @@
-use crate::zam::Entity;
+use crate::zam::{Entity, Zam};
 
-use super::{lookup::Lookup, Project};
-
-impl Project {
-    pub fn variable<'a>(&mut self, val: &mut Entity, lookup: &mut Lookup<'a>) {
+impl Zam {
+    pub fn variable<'a>(&mut self, val: &mut Entity) {
         let Entity::Variable { exp, done, .. } = val else {
             return;
         };
@@ -13,8 +11,8 @@ impl Project {
         }
 
         *done = true;
-        lookup.typ(&mut exp.typ.kind);
-        self.validate_type(exp, lookup);
+        self.typ(&mut exp.typ.kind);
+        self.validate_type(exp);
 
         println!("{exp} is {}", exp.typ);
     }

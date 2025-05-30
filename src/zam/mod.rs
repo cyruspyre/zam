@@ -7,7 +7,10 @@ use identifier::Identifier;
 use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
 
-use crate::parser::{log::Log, Parser};
+use crate::{
+    misc::{Ref, RefMut},
+    parser::{log::Log, Parser},
+};
 
 pub mod block;
 pub mod expression;
@@ -19,9 +22,17 @@ pub mod typ;
 
 #[derive(Default)]
 pub struct Zam {
+    pub id: Ref<String>,
     pub parser: Parser,
     pub block: Block,
     pub mods: IndexMap<String, Zam>,
+    pub lookup: Lookup,
+}
+
+#[derive(Default)]
+pub struct Lookup {
+    pub vars: IndexMap<Ref<Identifier>, RefMut<Entity>>,
+    pub decs: Vec<RefMut<IndexMap<Identifier, Entity>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,10 +41,12 @@ pub enum Entity {
         arg: Fields<Type>,
         gen: Generic,
         ret: Type,
+        done: bool,
         block: Option<Block>,
     },
     Struct {
         gen: Generic,
+        done: bool,
         fields: Fields<Type>,
         impls: IndexMap<Identifier, Entity>,
         traits: IndexMap<Identifier, [usize; 2]>,
@@ -78,9 +91,9 @@ impl Zam {
         }
 
         Self {
-            mods: IndexMap::new(),
             block: parser.block(BlockType::Global).unwrap_or_default(),
             parser,
+            ..Default::default()
         }
     }
 }

@@ -1,10 +1,11 @@
 mod init;
 mod zam;
 
-use std::{num::NonZeroUsize, path::PathBuf};
+use std::{num::NonZero, path::PathBuf, thread::available_parallelism};
 
 use clap::{arg, builder::PathBufValueParser, value_parser, Command};
 use init::init;
+use threadpool::ThreadPool;
 use zam::zam;
 
 use crate::cfg::Config;
@@ -16,7 +17,7 @@ pub fn start() {
         .hide_default_value(true);
     let release = arg!(-r --release "Build and run in release mode");
     let jobs = arg!(-j --jobs <N> "Number of parallel jobs, defaults to # of CPUs")
-        .value_parser(value_parser!(NonZeroUsize));
+        .value_parser(value_parser!(NonZero<usize>));
     let (name, mut cmd) = Command::new("zam")
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
@@ -50,8 +51,19 @@ pub fn start() {
     let path = cmd.remove_one::<PathBuf>("PATH").unwrap();
     let cfg = path.join("zam.toml");
 
-    match name.as_str() {
-        "new" => init(path, cfg, cmd),
-        _ => zam(path, Config::load(cfg)),
+    if name == "new" {
+        return init(path, cfg, cmd);
     }
+
+    let num_threads = if let Some(v) = cmd.remove_one("jobs") {
+        v
+    } else if let Ok(v) = available_parallelism() {
+        v
+    } else {
+        NonZero::new(1).unwrap()
+    };
+    let pool = ThreadPool::new(num_threads.get());
+
+    zam(path, Config::load(cfg), &pool);
+    pool.join();
 }

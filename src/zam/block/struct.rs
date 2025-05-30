@@ -29,6 +29,7 @@ impl Parser {
             Entity::Struct {
                 gen,
                 fields,
+                done: false,
                 impls: IndexMap::new(),
                 traits: IndexMap::new(),
             },

@@ -62,7 +62,7 @@ impl Display for TypeKind {
                 }
             ),
             TypeKind::Fn { arg, ret } => format!("fn({}) -> {ret}", join(arg)),
-            TypeKind::Tuple(items) => join(items),
+            TypeKind::Tuple(items) => format!("({})", join(items)),
             TypeKind::ID(v) => v.to_string(),
             TypeKind::Unknown => "UNKNOWN".into(),
             TypeKind::Entity { id, .. } => id.to_string(),

@@ -1,6 +1,8 @@
 use std::{
+    borrow::Borrow,
     fmt::Debug,
     ops::{Deref, DerefMut},
+    ptr::null,
 };
 
 pub type Result<T> = std::result::Result<T, T>;
@@ -35,11 +37,23 @@ impl<T> Either<T> for Result<T> {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Ref<T: ?Sized>(pub *const T);
 
+impl<T> Default for Ref<T> {
+    fn default() -> Self {
+        Self(null())
+    }
+}
+
 impl<T> Deref for Ref<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.0 }
+    }
+}
+
+impl<T> Borrow<T> for Ref<T> {
+    fn borrow(&self) -> &T {
+        self
     }
 }
 

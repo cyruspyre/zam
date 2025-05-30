@@ -42,6 +42,7 @@ impl Parser {
                 arg,
                 gen,
                 ret,
+                done: false,
                 block: Some(self.block(BlockType::Local)?),
             },
         ))
