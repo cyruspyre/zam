@@ -1,16 +1,16 @@
 use std::borrow::Cow;
 
 use crate::{
+    log::{Log, Point},
     misc::Bypass,
-    parser::log::{Log, Point},
+    project::Project,
     zam::{
         expression::{misc::Range, term::Term, Expression},
         typ::{kind::TypeKind, Type},
-        Zam,
     },
 };
 
-impl Zam {
+impl Project {
     pub fn validate_type<'a>(&mut self, exp: &mut Expression) -> Option<()> {
         let kind = exp.typ.kind.bypass();
 
@@ -20,12 +20,12 @@ impl Zam {
             self.location(exp.data.rng())
         );
 
-        let cur = self.parser.bypass();
+        let log = self.cur().log.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 
         while let Some((i, v)) = iter.next() {
-            cur.rng = v.rng;
+            log.rng = v.rng;
 
             let kind = match v.data.bypass() {
                 Term::As(Type {
@@ -41,7 +41,7 @@ impl Zam {
                         kind.data,
                         TypeKind::Bool | TypeKind::Integer { .. } | TypeKind::Float(_)
                     ) {
-                        cur.err_rng(
+                        log.err_rng(
                             [exp.data[i - 1].rng[0], v.rng[1]],
                             "non-primitive type casting",
                         )?
@@ -56,7 +56,7 @@ impl Zam {
                 Term::Float { bit, .. } => Cow::Owned(TypeKind::Float(*bit)),
                 Term::Add | Term::Sub | Term::Mul | Term::Div | Term::Mod => match typ.bypass() {
                     Some(v) => Cow::Borrowed(unsafe { &*(v.as_ref() as *const _) }),
-                    _ => cur.err("expected a term beforehand")?,
+                    _ => log.err("expected a term beforehand")?,
                 },
                 // todo: find a way to apply inferred type to used variables in an expr
                 Term::Identifier(id) => self.bypass().as_typ(id, || match iter.next() {
@@ -112,9 +112,9 @@ impl Zam {
                 ""
             };
 
-            cur.log(
+            log.bypass()(
                 &mut [(
-                    cur.rng,
+                    log.rng,
                     Point::Error,
                     format!("expected `{one}`, found `{two}`"),
                 )],
@@ -146,7 +146,7 @@ impl Zam {
                 format!("expected `{kind}`, found `{typ}`"),
             ));
 
-            cur.log(&mut pnt, Log::Error, "type mismatch", "");
+            log(&mut pnt, Log::Error, "type mismatch", "");
         }
 
         Some(())

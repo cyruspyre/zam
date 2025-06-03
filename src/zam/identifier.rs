@@ -5,9 +5,9 @@ use std::{
 };
 
 use crate::{
-    misc::Ref,
+    log::{Log, Point},
+    misc::{Bypass, Ref},
     parser::{
-        log::{Log, Point},
         span::{Span, ToSpan},
         Parser,
     },
@@ -108,10 +108,10 @@ impl Display for Identifier {
 
 impl Parser {
     pub fn identifier(&mut self, required: bool, qualifiable: bool) -> Option<Identifier> {
-        let idx = self.idx;
-        let non_qualifiable = !qualifiable;
         let mut buf = Vec::new();
-
+        let non_qualifiable = !qualifiable;
+        let log = self.log.bypass();
+        let idx = self.idx;
         let msg = loop {
             let tmp = self.word();
 
@@ -144,10 +144,10 @@ impl Parser {
                 break "cannot be a keyword";
             }
 
-            buf.push(tmp.span(self.rng));
+            buf.push(tmp.span(log.rng));
 
             if non_qualifiable || self.next_if(&["::"]).is_err() {
-                self.rng = buf.rng();
+                log.rng = buf.rng();
                 return Some(Identifier(buf));
             }
         };
@@ -155,25 +155,25 @@ impl Parser {
         match msg.len() {
             0 => {}
             12 => {
-                let rng = self.rng;
+                let rng = log.rng;
                 let mut after = self.id_or_symbol().is_none();
 
-                if self.data[self.rng[0] - 1] == '\n' {
-                    self.rng = rng;
+                if log.data[log.rng[0] - 1] == '\n' {
+                    log.rng = rng;
                     after = true;
                 }
 
-                self.err_op(after, &[msg])?
+                log.err_op(after, &[msg])?
             }
-            _ => self.log(
-                &mut [(self.rng, Point::Error, msg)],
+            _ => log.bypass()(
+                &mut [(log.rng, Point::Error, msg)],
                 Log::Error,
                 "expected `<identifier>`",
                 "",
             ),
         }
 
-        if self.ignore {
+        if log.ignore {
             self.idx = idx
         }
 

@@ -2,13 +2,16 @@ mod function;
 mod implement;
 mod r#struct;
 
-use std::fmt::{Display, Formatter, Result};
+use std::{
+    fmt::{Display, Formatter, Result},
+    path::Path,
+};
 
 use indexmap::IndexMap;
 
 use crate::{
-    misc::Bypass,
-    parser::log::{Log, Point},
+    log::{Log, Point},
+    misc::{Bypass, Ref},
 };
 
 use super::{
@@ -16,14 +19,13 @@ use super::{
     Entity, Parser,
 };
 
-pub type Impls = IndexMap<Identifier, IndexMap<Identifier, Vec<(Generic, Block)>>>;
+pub type Impls = IndexMap<Ref<String>, IndexMap<Ref<Path>, Vec<([Identifier; 2], Generic, Block)>>>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
     pub public: Vec<usize>,
     pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
-    pub impls: Impls,
 }
 
 #[derive(PartialEq)]
@@ -50,7 +52,7 @@ impl Parser {
 
     pub fn _block(&mut self, typ: BlockType, mut stm: Vec<Statement>) -> Option<Block> {
         if typ != BlockType::Global {
-            if self.data[self.idx] != '{' {
+            if self.log.data[self.idx] != '{' {
                 self.expect(&['{'])?;
             }
 
@@ -60,9 +62,9 @@ impl Parser {
         let mut dup = IndexMap::new();
         let mut flag = true;
         let mut dec: IndexMap<Identifier, _> = IndexMap::new();
-        let mut impls = IndexMap::new();
         let mut public = Vec::new();
         let stm_ref = stm.bypass();
+        let log = self.log.bypass();
         let de = match self.de.back() {
             Some(n) => n - 1,
             _ => 0,
@@ -89,7 +91,7 @@ impl Parser {
             }
 
             if tmp == "impl" {
-                self.implement(&mut impls)?;
+                self.implement()?;
                 continue;
             }
 
@@ -130,7 +132,7 @@ impl Parser {
             }
 
             if not_local {
-                self.err(format!("expected keyword of {typ} context"))?
+                log.err(format!("expected keyword of {typ} context"))?
             } else if stamp == de {
                 continue;
             }
@@ -163,7 +165,7 @@ impl Parser {
         }
 
         for (k, mut v) in dup {
-            self.log(
+            log(
                 &mut v,
                 Log::Error,
                 &format!("identifier `{k}` declared multiple times"),
@@ -171,11 +173,6 @@ impl Parser {
             );
         }
 
-        Some(Block {
-            dec,
-            stm,
-            impls,
-            public,
-        })
+        Some(Block { dec, stm, public })
     }
 }

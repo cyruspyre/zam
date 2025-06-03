@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::{
+    misc::Bypass,
     parser::{span::ToSpan, Context},
     zam::{expression::misc::Range, identifier::Identifier, Entity},
 };
@@ -20,9 +21,10 @@ impl Parser {
             self.expect_char(&['{'])?;
         }
 
-        self.ctx = Some(Context::Struct.span(name.rng()));
+        let ctx = self.log.ctx.bypass();
+        *ctx = Some(Context::Struct.span(name.rng()));
         let fields = self.fields('}')?;
-        self.ctx = None;
+        *ctx = None;
 
         Some((
             name,

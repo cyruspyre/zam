@@ -1,15 +1,31 @@
+mod error;
+
 use std::{
     borrow::Cow,
     fmt::Display,
     io::{stderr, BufWriter, Write},
     ops::Add,
+    path::PathBuf,
 };
 
 use colored::{Color, Colorize};
 
-use crate::misc::{Bypass, Either};
+use crate::{
+    misc::{Bypass, Either},
+    parser::{span::Span, Context},
+};
 
-use super::{Context, Parser};
+#[derive(Default)]
+pub struct Logger {
+    pub path: PathBuf,
+    pub data: Vec<char>,
+    pub line: Vec<usize>,
+    pub rng: [usize; 2],
+    pub eof: bool,
+    pub err: usize,
+    pub ctx: Option<Span<Context>>,
+    pub ignore: bool,
+}
 
 #[derive(Debug)]
 pub enum Log {
@@ -25,8 +41,8 @@ pub enum Point {
     Warning,
 }
 
-impl Parser {
-    pub fn log<L, M, N>(
+impl Logger {
+    pub fn call<L, M, N>(
         &mut self,
         mut pnt: &mut [([usize; 2], Point, L)],
         typ: Log,
@@ -100,7 +116,7 @@ impl Parser {
                     tmp = false;
                     let msg = Cow::Owned(format!(
                         "{} this {}",
-                        if self.is_eof() { "in" } else { "while parsing" },
+                        if self.eof { "in" } else { "while parsing" },
                         match **ctx {
                             Context::Struct => "struct",
                             Context::Function => "function",
@@ -235,5 +251,31 @@ impl Parser {
         }
 
         io.flush().unwrap();
+    }
+}
+
+type Args<'a, P, M, N> = (&'a mut [([usize; 2], Point, P)], Log, M, N);
+
+impl<P, M, N> FnOnce<Args<'_, P, M, N>> for Logger
+where
+    P: Display + AsRef<str>,
+    M: Display + AsRef<str>,
+    N: Display + AsRef<str>,
+{
+    type Output = ();
+
+    extern "rust-call" fn call_once(mut self, args: Args<P, M, N>) -> Self::Output {
+        self.call_mut(args)
+    }
+}
+
+impl<P, M, N> FnMut<(&'_ mut [([usize; 2], Point, P)], Log, M, N)> for Logger
+where
+    P: Display + AsRef<str>,
+    M: Display + AsRef<str>,
+    N: Display + AsRef<str>,
+{
+    extern "rust-call" fn call_mut(&mut self, args: Args<P, M, N>) -> Self::Output {
+        self.call(args.0, args.1, args.2, args.3);
     }
 }

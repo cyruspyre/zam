@@ -7,38 +7,40 @@ mod r#struct;
 mod typ;
 mod variable;
 
-use std::path::Path;
-
-use indexmap::IndexMap;
+use std::thread::{current, ThreadId};
 
 use crate::{
     cfg::Config,
     err,
-    misc::{Bypass, Ref},
-    zam::{block::Block, identifier::Identifier, typ::generic::Generic, Zam},
+    misc::{Bypass, RefMut},
+    zam::{block::Impls, Zam},
 };
 
 pub struct Project {
     pub cfg: Config,
     pub root: Zam,
-    #[rustfmt::skip]
-    pub impls: IndexMap<Identifier, IndexMap<Ref<Path>, IndexMap<Identifier, Vec<(Generic, Block)>>>>,
+    pub impls: Impls,
+    pub cur: Vec<(ThreadId, RefMut<Zam>)>,
 }
 
 impl Project {
     pub fn validate(mut self) {
         self.main_fn();
 
-        let name = &self.cfg.pkg.name;
+        let tmp = self.bypass();
+        let name = &tmp.cfg.pkg.name;
         let mut err = 0;
-        let mut stack = vec![&mut self.root];
+        let mut stack = vec![&mut tmp.root];
 
         while let Some(zam) = stack.pop() {
-            zam.bypass().block(&mut zam.block);
+            self.cur.push((current().id(), RefMut(zam)));
+            self.block(&mut zam.block);
+            self.cur.swap_remove(self.cur_idx());
 
-            err += zam.parser.err;
+            err += zam.log.err;
 
-            for v in zam.mods.values_mut() {
+            for v in zam.bypass().mods.values_mut() {
+                v.parent = RefMut(zam);
                 stack.push(v);
             }
         }
@@ -53,5 +55,15 @@ impl Project {
                 }
             )
         }
+    }
+
+    fn cur_idx(&self) -> usize {
+        let id = current().id();
+
+        self.cur.iter().position(|v| v.0 == id).unwrap()
+    }
+
+    pub fn cur(&mut self) -> &mut Zam {
+        &mut self.bypass().cur[self.cur_idx()].1
     }
 }

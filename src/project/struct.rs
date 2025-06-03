@@ -1,10 +1,11 @@
 use crate::{
     misc::Bypass,
     parser::{span::ToSpan, Context},
-    zam::{Entity, Zam},
+    project::Project,
+    zam::Entity,
 };
 
-impl Zam {
+impl Project {
     pub fn r#struct<'a>(&mut self, val: &mut Entity) {
         let Entity::Struct { fields, done, .. } = val else {
             return;
@@ -14,15 +15,15 @@ impl Zam {
             return;
         }
 
-        let cur = self.parser.bypass();
+        let log = self.cur().log.bypass();
 
-        cur.ctx = Some(Context::Struct.span(cur.rng));
+        log.ctx = Some(Context::Struct.span(log.rng));
 
         for v in fields.values_mut() {
             self.typ(&mut v.kind);
         }
 
-        cur.ctx = None;
+        log.ctx = None;
         *done = true;
     }
 }

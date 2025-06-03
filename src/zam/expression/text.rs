@@ -1,8 +1,7 @@
 use crate::{
-    parser::{
-        log::{Log, Point},
-        span::Span,
-    },
+    log::{Log, Logger, Point},
+    misc::Bypass,
+    parser::span::Span,
     zam::{expression::term::AssignKind, Entity},
 };
 
@@ -23,7 +22,9 @@ impl Parser {
             ($($x:expr),+ $(,)?) => {[$($x),+].map(|v| self.span(v)).to_vec()};
         }
 
-        self.rng.fill(self.idx + 1);
+        let log = self.log.bypass();
+
+        log.rng.fill(self.idx + 1);
 
         let [typ, de] = match self.next() {
             c if c.is_ascii_alphabetic() => [c, self.next()],
@@ -33,7 +34,7 @@ impl Parser {
         self.ensure_closed(de)?;
 
         if !matches!(typ, 'b' | 'r' | ' ') {
-            self.err("unknown prefix")?
+            log.err("unknown prefix")?
         }
 
         let byte = typ == 'b';
@@ -56,17 +57,19 @@ impl Parser {
                         '\'' => '\'',
                         '\\' => '\\',
                         '{' if de == '"' => '{',
-                        _ => self.err_rng([self.idx - 1, self.idx], "unknown character escape")?,
+                        _ => log.err_rng([self.idx - 1, self.idx], "unknown character escape")?,
                     }
                 } else if c == '{' {
-                    self.rng.fill(self.idx);
-                    self.ignore = true;
+                    let Logger { rng, ignore, .. } = self.log.bypass();
+
+                    rng.fill(self.idx);
+                    *ignore = true;
                     let tmp = self.ensure_closed('}').is_none();
-                    self.ignore = false;
+                    *ignore = false;
 
                     if tmp {
-                        self.log(
-                            &mut [(self.rng, Point::Info, "starting here")],
+                        log.bypass()(
+                            &mut [(log.rng, Point::Info, "starting here")],
                             Log::Error,
                             "unclosed string interpolation",
                             "if you meant to use `{`, escape it using `\\{`",
@@ -91,7 +94,7 @@ impl Parser {
             }
         }
 
-        self.rng[1] = self.idx;
+        log.rng[1] = self.idx;
         self.de.pop_back();
 
         if de == '"' {
@@ -170,7 +173,7 @@ impl Parser {
             _ => "cannot use interpolation in character literal",
         };
 
-        self.err(msg)?
+        log.err(msg)?
     }
 
     fn lol<const N: usize>(&self, v: [Term; N]) -> [Span<Term>; N] {

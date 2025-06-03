@@ -7,7 +7,7 @@ impl Parser {
         let tmp = self.bypass();
         let mut next = || {
             tmp.idx += 1;
-            tmp.rng.fill(tmp.idx);
+            tmp.log.rng.fill(tmp.idx);
         };
 
         next();
@@ -19,7 +19,7 @@ impl Parser {
 
         if exp.data.is_empty() {
             if tmp {
-                self.err("expected <expression> thereafter")?
+                self.log.err("expected <expression> thereafter")?
             }
         } else {
             if tmp {

@@ -14,7 +14,7 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::{err, parser::Parser};
+use crate::{err, log::Logger};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -210,7 +210,7 @@ fn map_err(path: PathBuf, data: String, err: toml::de::Error) -> ! {
         rng[1] -= 1
     }
 
-    Parser {
+    Logger {
         path,
         line,
         data: chars,

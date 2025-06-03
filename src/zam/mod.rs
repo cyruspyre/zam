@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, path::PathBuf};
+use std::{collections::VecDeque, fs::read_to_string, path::PathBuf};
 
 use block::{Block, BlockType};
 use expression::Expression;
@@ -8,8 +8,10 @@ use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
 
 use crate::{
+    log::{Log, Logger},
     misc::{Ref, RefMut},
-    parser::{log::Log, Parser},
+    parser::Parser,
+    zam::block::Impls,
 };
 
 pub mod block;
@@ -22,9 +24,9 @@ pub mod typ;
 
 #[derive(Default)]
 pub struct Zam {
-    pub id: Ref<String>,
-    pub parser: Parser,
+    pub log: Logger,
     pub block: Block,
+    pub parent: RefMut<Zam>,
     pub mods: IndexMap<String, Zam>,
     pub lookup: Lookup,
 }
@@ -69,30 +71,39 @@ impl Entity {
 }
 
 impl Zam {
-    pub fn parse(path: PathBuf, required: bool) -> Self {
+    pub fn parse(path: PathBuf, required: bool, impls: &mut Impls) -> Self {
         let res = read_to_string(&path);
         let err = res.is_err();
         let mut parser = Parser {
-            data: res.unwrap_or_default().chars().collect(),
-            path,
+            log: Logger {
+                path,
+                data: res.unwrap_or_default().chars().collect(),
+                ..Default::default()
+            },
+            impls: RefMut(impls),
             idx: usize::MAX,
-            ..Default::default()
+            de: VecDeque::new(),
         };
 
         if err && required {
-            let path = &parser.path;
+            let path = &parser.log.path;
             let msg = format!(
                 "couldn't find `{}` in `{}`",
                 path.file_name().unwrap().display(),
                 path.parent().unwrap().display()
             );
 
-            parser.log::<&str, _, _>(&mut [], Log::Error, msg, "");
+            parser.log.call::<&str, _, _>(&mut [], Log::Error, msg, "");
         }
 
+        let block = parser.block(BlockType::Global).unwrap_or_default();
+        let mut log = parser.log;
+
+        log.eof = true;
+
         Self {
-            block: parser.block(BlockType::Global).unwrap_or_default(),
-            parser,
+            log,
+            block,
             ..Default::default()
         }
     }

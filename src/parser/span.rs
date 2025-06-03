@@ -16,7 +16,7 @@ pub struct Span<T> {
 impl Parser {
     pub fn span<T>(&self, data: T) -> Span<T> {
         Span {
-            rng: self.rng,
+            rng: self.log.rng,
             data,
         }
     }

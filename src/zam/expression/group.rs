@@ -20,7 +20,7 @@ impl Parser {
 
         self.idx += 1;
         self.de.pop_back();
-        self.rng.fill(self.idx);
+        self.log.rng.fill(self.idx);
 
         Some(buf)
     }

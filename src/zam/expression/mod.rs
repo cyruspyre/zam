@@ -12,9 +12,9 @@ use misc::Range;
 use term::{AssignKind, Term};
 
 use crate::{
+    log::{Log, Point},
     misc::Bypass,
     parser::{
-        log::{Log, Point},
         misc::CharExt,
         span::{Span, ToSpan},
     },
@@ -129,6 +129,7 @@ impl Parser {
         let mut end = '\0';
         let mut ass = true; // assignable...
         let mut was_op = true;
+        let log = self.log.bypass();
         let last = match self.de.back() {
             Some(n) => n - 1,
             _ => 0,
@@ -155,7 +156,7 @@ impl Parser {
                     Some(v) => !matches!(v.data, Term::Identifier(_)),
                     _ => true,
                 } {
-                    self.err("expected identifier before generic parameter")?
+                    log.err("expected identifier before generic parameter")?
                 }
 
                 v
@@ -181,7 +182,7 @@ impl Parser {
                 }
 
                 if !ass {
-                    self.log(
+                    log(
                         &mut [
                             (exp.rng(), Point::Info, "cannot assign to this expression"),
                             ([self.idx; 2], Point::Error, ""),
@@ -244,7 +245,7 @@ impl Parser {
                         };
                     }
 
-                    self.rng.fill(self.idx);
+                    log.rng.fill(self.idx);
                     let mut op = Vec::with_capacity(de.len() + 1);
 
                     for c in de {
@@ -253,7 +254,7 @@ impl Parser {
 
                     op.push("<operator>".into());
 
-                    self.err_op(false, &op)?
+                    log.err_op(false, &op)?
                 }
             };
             let special = !matches!(
@@ -261,7 +262,7 @@ impl Parser {
                 Term::Ref | Term::Deref | Term::Neg | Term::As(_) | Term::Struct(_)
             );
 
-            self.rng = [start, self.idx];
+            log.rng = [start, self.idx];
             is_op |= tmp == Term::Sub;
             ass &= matches!(tmp, Term::Deref | Term::Identifier(_));
 
@@ -274,15 +275,15 @@ impl Parser {
                     }
                 );
 
-                self.err(msg)?;
+                log.err(msg)?;
             }
 
             was_op = is_op;
-            exp.push(tmp.span(self.rng));
+            exp.push(tmp.span(log.rng));
         }
 
         if required && exp.is_empty() {
-            self.err_op(true, &["<expression>"])?
+            log.err_op(true, &["<expression>"])?
         }
 
         // todo: move the operator precedence somewhere else to perform it after validating only

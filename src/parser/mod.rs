@@ -1,15 +1,13 @@
-pub mod error;
-pub mod log;
 pub mod misc;
 pub mod span;
 
-use std::{any::TypeId, collections::VecDeque, fmt::Display, path::PathBuf};
+use std::{any::TypeId, collections::VecDeque, fmt::Display};
 
-use log::{Log, Point};
 use misc::CharExt;
-use span::Span;
 
-use crate::misc::{Either, Result};
+use crate::{
+    log::{Log, Logger, Point}, misc::{Bypass, Either, RefMut, Result}, zam::block::Impls
+};
 
 pub enum Context {
     Struct,
@@ -18,34 +16,26 @@ pub enum Context {
 
 #[derive(Default)]
 pub struct Parser {
-    pub path: PathBuf,
-    pub data: Vec<char>,
-    pub line: Vec<usize>,
-    pub rng: [usize; 2],
+    pub log: Logger,
     pub idx: usize,
-    pub err: usize,
-    pub ctx: Option<Span<Context>>,
-    pub ignore: bool,
     pub de: VecDeque<usize>,
+    pub impls: RefMut<Impls>,
 }
 
 impl Parser {
-    #[inline]
-    pub fn is_eof(&self) -> bool {
-        self.idx == self.data.len() - 1
-    }
-
     pub fn _next<'a>(&'a mut self) -> Option<char> {
+        let line = self.log.line.bypass();
+
         if let Some(c) = self._peek() {
             self.idx = self.idx.wrapping_add(1);
 
             if c == '\n'
-                && match self.line.last() {
+                && match line.last() {
                     Some(v) => *v < self.idx,
                     _ => true,
                 }
             {
-                self.line.push(self.idx);
+                line.push(self.idx);
             }
 
             return Some(c);
@@ -61,7 +51,7 @@ impl Parser {
     // todo: this looks hideous try to rewrite it
     pub fn next_if<T: ToString>(&mut self, op: &[T]) -> Result<String> {
         let tmp = self.idx;
-        let mut rng = self.rng;
+        let mut rng = self.log.rng;
         let mut op: Vec<_> = op.into_iter().map(|v| v.to_string()).collect();
         let mut buf = String::new();
         let mut ok = false;
@@ -104,7 +94,7 @@ impl Parser {
 
         if ok || early {
             rng[1] += buf.len().checked_sub(1).unwrap_or_default();
-            self.rng = rng;
+            self.log.rng = rng;
         }
 
         match ok {
@@ -118,15 +108,16 @@ impl Parser {
     }
 
     pub fn _peek(&mut self) -> Option<char> {
-        if let Some(c) = self.data.get(self.idx.wrapping_add(1)) {
+        let Logger { data, rng, .. } = &self.log;
+
+        if let Some(c) = data.get(self.idx.wrapping_add(1)) {
             if *c == '/'
-                && !matches!(self.data[self.rng[0]], '"' | '\'')
-                && self
-                    .data
+                && !matches!(data[rng[0]], '"' | '\'')
+                && data
                     .get(self.idx.wrapping_add(2))
                     .is_some_and(|c| *c == '/')
             {
-                for c in &self.data[self.idx.wrapping_add(1)..] {
+                for c in &data[self.idx.wrapping_add(1)..] {
                     if *c == '\n' {
                         return self._peek();
                     }
@@ -150,7 +141,7 @@ impl Parser {
     }
 
     pub fn peek_more(&mut self) -> char {
-        if let Some(c) = self.data.get(self.idx.wrapping_add(2)) {
+        if let Some(c) = self.log.data.get(self.idx.wrapping_add(2)) {
             return *c;
         }
 
@@ -159,6 +150,7 @@ impl Parser {
 
     pub fn word(&mut self) -> String {
         let mut buf = String::new();
+        let rng = self.log.rng.bypass();
 
         while let Some(c) = self._peek() {
             if buf.is_empty() && c.is_ascii_whitespace() {
@@ -171,14 +163,14 @@ impl Parser {
             }
 
             if buf.is_empty() {
-                self.rng[0] = self.idx + 1;
+                rng[0] = self.idx + 1;
             }
 
             buf.push(self.next());
         }
 
         if buf.len() != 0 {
-            self.rng[1] = self.rng[0] + buf.len() - 1
+            rng[1] = rng[0] + buf.len() - 1
         }
 
         buf
@@ -199,8 +191,9 @@ impl Parser {
 
     pub fn enclosed(&mut self, de: char) -> Option<String> {
         self.expect_char(&[de])?;
-        self.rng = [self.idx; 2];
 
+        let log = self.log.bypass();
+        log.rng = [self.idx; 2];
         let mut buf = String::new();
 
         while let Some(c) = self._next() {
@@ -209,10 +202,10 @@ impl Parser {
             }
 
             if c == de {
-                self.rng[1] = self.idx;
+                log.rng[1] = self.idx;
 
                 if buf.is_empty() {
-                    self.err("expected a value inside it")?
+                    log.err("expected a value inside it")?
                 }
 
                 return Some(buf);
@@ -221,13 +214,15 @@ impl Parser {
             buf.push(c);
         }
 
-        self.err(format!("unclosed delimiter `{de}` starting here"))?
+        log.err(format!("unclosed delimiter `{de}` starting here"))?
     }
 
     #[must_use]
     pub fn ensure_closed(&mut self, de: char) -> Option<()> {
+        let log = self.log.bypass();
+        let data = &log.data;
         let tmp = self.idx;
-        let typ = self.data[tmp];
+        let typ = data[tmp];
         let same = typ == de;
         let mut count = 0;
         let mut string = 0;
@@ -237,7 +232,7 @@ impl Parser {
                 string = self.idx;
 
                 while let Some(v) = self._next() {
-                    if c == v && self.data[self.idx - 1] != '\\' {
+                    if c == v && data[self.idx - 1] != '\\' {
                         string = 0;
                         continue 'a;
                     }
@@ -264,7 +259,7 @@ impl Parser {
             0 => String::new(),
             _ => format!(
                 "unclosed {} literal",
-                match self.data[string] {
+                match data[string] {
                     '"' => "string",
                     _ => "character",
                 }
@@ -279,7 +274,7 @@ impl Parser {
 
         pnt.push(([self.idx + 1; 2], Point::Error, ""));
 
-        self.log(
+        log(
             &mut pnt,
             Log::Error,
             format!("unclosed delimeter `{de}`"),
@@ -294,9 +289,10 @@ impl Parser {
 
         let tmp = self._next()?;
         let typ = tmp.is_id();
+        let rng = self.log.rng.bypass();
         let mut buf = tmp.to_string();
 
-        self.rng.fill(self.idx);
+        rng.fill(self.idx);
 
         while let Some(c) = self._next() {
             if c.is_ascii_whitespace() || c.is_id() != typ {
@@ -307,17 +303,17 @@ impl Parser {
         }
 
         self.idx -= 1;
-        self.rng[1] = self.idx;
+        rng[1] = self.idx;
 
         Some(buf)
     }
 
     pub fn might<T: Display>(&mut self, t: T) -> bool {
-        let rng = self.rng;
+        let rng = self.log.rng;
         let ok = self.next_if(&[t]).is_ok();
 
         if !ok {
-            self.rng = rng
+            self.log.rng = rng
         }
 
         ok
@@ -325,25 +321,26 @@ impl Parser {
 
     #[must_use]
     pub fn expect<T: Display + 'static>(&mut self, op: &[T]) -> Option<String> {
-        let rng = self.rng;
+        let rng = self.log.rng;
+        let log = self.log.bypass();
         let tmp = self.next_if(op);
+        let line = log.line.bypass();
 
         if let Err(tmp) = tmp {
-            let idx = self.rng[0];
-            let multiline = self
-                .line
-                .get(self.line.binary_search(&rng[0]).either())
+            let idx = log.rng[0];
+            let multiline = line
+                .get(line.binary_search(&rng[0]).either())
                 .is_some_and(|v| idx > *v);
 
             if !tmp.is_empty() && TypeId::of::<T>() == TypeId::of::<char>() {
-                self.rng[0] = self.rng[1];
+                log.rng[0] = log.rng[1];
             }
 
             if multiline {
-                self.rng = rng
+                log.rng = rng
             }
 
-            self.err_op(tmp.is_empty() || multiline, &op)?
+            log.err_op(tmp.is_empty() || multiline, &op)?
         }
 
         tmp.ok()
@@ -352,6 +349,6 @@ impl Parser {
     #[must_use]
     pub fn expect_char(&mut self, op: &[char]) -> Option<char> {
         self.expect(op)?;
-        Some(self.data[self.idx])
+        Some(self.log.data[self.idx])
     }
 }

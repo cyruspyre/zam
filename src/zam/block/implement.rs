@@ -1,11 +1,13 @@
 use std::mem::swap;
 
-use crate::parser::Parser;
-
-use super::{BlockType, Impls};
+use crate::{
+    misc::{Bypass, Ref},
+    parser::Parser,
+    zam::block::BlockType,
+};
 
 impl Parser {
-    pub fn implement(&mut self, impls: &mut Impls) -> Option<()> {
+    pub fn implement(&mut self) -> Option<()> {
         let gen = match self.might('<') {
             true => self.dec_gen()?,
             _ => Default::default(),
@@ -22,12 +24,13 @@ impl Parser {
             swap(&mut id_one, &mut id_two);
         }
 
-        impls
-            .entry(id_one)
+        self.impls
+            .bypass()
+            .entry(Ref(&id_one.leaf_name().data))
             .or_default()
-            .entry(id_two)
+            .entry(Ref(self.log.path.as_path()))
             .or_default()
-            .push((gen, self.block(BlockType::Impl)?));
+            .push(([id_one, id_two], gen, self.block(BlockType::Impl)?));
 
         Some(())
     }

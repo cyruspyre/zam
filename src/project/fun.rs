@@ -1,6 +1,6 @@
-use crate::zam::{Entity, Zam};
+use crate::{project::Project, zam::Entity};
 
-impl Zam {
+impl Project {
     pub fn fun(&mut self, val: &mut Entity) {
         let Entity::Function {
             arg, ret, block, ..

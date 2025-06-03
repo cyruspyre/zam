@@ -1,5 +1,7 @@
 use hexf_parse::parse_hexf64;
 
+use crate::misc::Bypass;
+
 use super::{Parser, Term};
 
 impl Parser {
@@ -8,12 +10,13 @@ impl Parser {
         let mut suf = '\0';
         let mut dot = false;
         let neg = self.might('-');
+        let log = self.log.bypass();
 
         if neg && !self.skip_whitespace().is_ascii_digit() {
             return Some(Term::Sub);
         }
 
-        self.rng.fill(self.idx);
+        log.rng.fill(self.idx);
 
         let rad = if self.might('0') {
             match self.next() {
@@ -23,7 +26,7 @@ impl Parser {
                 _ => {
                     buf[0].push('0');
                     self.idx -= 1;
-                    self.rng[0] -= neg as usize;
+                    log.rng[0] -= neg as usize;
                     10
                 }
             }
@@ -63,19 +66,19 @@ impl Parser {
                         break;
                     }
 
-                    let tmp = self.rng[0];
+                    let tmp = log.rng[0];
 
                     if self.word() == "size" && suf != 'f' {
                         buf[0] += "size"
                     }
 
-                    self.rng[0] = tmp;
+                    log.rng[0] = tmp;
                     break;
                 }
             }
         }
 
-        self.rng[1] = self.idx;
+        log.rng[1] = self.idx;
 
         if buf[1].len() != 0 {
             buf.swap(0, 1)
@@ -88,10 +91,10 @@ impl Parser {
                 let tmp = v.parse().unwrap_or_default();
 
                 if neg && suf == 'u' {
-                    self.err("unsigned integer cannot be negative")?
+                    log.err("unsigned integer cannot be negative")?
                 }
 
-                self.err(format!(
+                log.err(format!(
                     "invalid suffix. expected {suf}{{{}}}",
                     match suf {
                         'f' if !matches!(tmp, 32 | 64) => "32|64",
@@ -111,7 +114,7 @@ impl Parser {
                 if let Some(val) = match rad {
                     10 => buf[0].parse().ok(),
                     16 => parse_hexf64(&format!("0x{}", buf[0]), false).ok(),
-                    _ => self.err("only decimal and hexadecimal are allowed for float literals")?,
+                    _ => log.err("only decimal and hexadecimal are allowed for float literals")?,
                 } {
                     return Some(Term::Float { val, bit });
                 }
@@ -135,7 +138,7 @@ impl Parser {
             }
         }
 
-        self.err(format!(
+        log.err(format!(
             "invalid {} {} literal",
             match rad {
                 2 => "binary",

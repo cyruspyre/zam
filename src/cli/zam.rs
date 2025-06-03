@@ -6,9 +6,9 @@ use threadpool::ThreadPool;
 use crate::{
     cfg::Config,
     err,
-    misc::{Bypass, Ref},
+    misc::Bypass,
     project::Project,
-    zam::{identifier::Identifier, Zam},
+    zam::{block::Impls, Zam},
 };
 
 pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
@@ -22,23 +22,9 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
 
     path.push("src");
 
-    let mut impls: IndexMap<Identifier, IndexMap<_, _>> = IndexMap::new();
-    let mut parse = |path: PathBuf, required: bool, id: Ref<String>| {
-        let mut zam = Zam::parse(path, required);
-
-        zam.id = id;
-
-        while let Some((key, v)) = zam.block.impls.pop() {
-            impls
-                .entry(key)
-                .or_default()
-                .entry(Ref(zam.parser.path.as_path()))
-                .or_insert(v);
-        }
-
-        zam
-    };
-    let mut root = parse(path.join("main.z"), true, Ref(&cfg.pkg.name));
+    let mut impls: Impls = IndexMap::new();
+    let mut parse = |path: PathBuf, required: bool| Zam::parse(path, required, &mut impls);
+    let mut root = parse(path.join("main.z"), true);
     let mut stack = Vec::from([(path, &mut root.mods, None)]);
 
     while let Some((cur, mods, remover)) = stack.pop() {
@@ -55,10 +41,9 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
                 Some(v) if let Some(v) = v.to_str() => v.to_string(),
                 _ => continue,
             };
-            let id = Ref(&key);
 
             if typ.is_dir() {
-                let zam = parse(path.join("mod.z"), false, id);
+                let zam = parse(path.join("mod.z"), false);
                 let mut entry = mods.bypass().entry(key).insert_entry(zam);
                 let parent = mods.bypass();
 
@@ -75,14 +60,14 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
             if !typ.is_file()
                 || *match entry.file_name().to_str() {
                     Some("main.z") => &path,
-                    Some("mod.z") => &root.parser.path,
+                    Some("mod.z") => &root.log.path,
                     _ => &cur,
                 } == path
             {
                 continue;
             }
 
-            mods.insert(key, parse(path, true, id));
+            mods.insert(key, parse(path, true));
         }
 
         // omit directories with empty zam src files
@@ -93,5 +78,11 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
         }
     }
 
-    Project { cfg, root, impls }.validate();
+    Project {
+        cur: Vec::new(),
+        cfg,
+        root,
+        impls,
+    }
+    .validate();
 }

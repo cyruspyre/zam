@@ -110,7 +110,7 @@ impl Term {
             };
 
             if err {
-                src.err(format!(
+                src.log.err(format!(
                     "`{}{bit}` has a range of `{}..={max}`",
                     if *sign { 'i' } else { 'u' },
                     min as i64

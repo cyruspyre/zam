@@ -3,22 +3,21 @@ use std::{borrow::Cow, collections::VecDeque, ops::DerefMut};
 use strsim::jaro;
 
 use crate::{
+    log::{Log, Point},
     misc::{Bypass, Either, Ref, RefMut, Result},
-    parser::{
-        log::{Log, Point},
-        span::Span,
-    },
+    parser::span::Span,
+    project::Project,
     zam::{
         expression::{misc::Range, term::Term},
         identifier::Identifier,
         typ::kind::TypeKind,
-        Entity, Zam,
+        Entity,
     },
 };
 
-impl Zam {
+impl Project {
     pub fn lookup(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
-        let mut zam = self.bypass();
+        let mut zam = self.cur();
 
         for key in id.iter() {
             let Some(next) = zam.mods.get_mut(&key.data) else {
@@ -92,7 +91,7 @@ impl Zam {
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let cur = self.parser.bypass();
+        let log = self.cur().log.bypass();
         let res = self.bypass().lookup(id);
         let Some(Ok((k, val))) = res else {
             let mut pnt = Vec::new();
@@ -106,7 +105,7 @@ impl Zam {
             }
 
             pnt.push((id.rng(), Point::Error, String::new()));
-            cur.log(
+            log(
                 &mut pnt,
                 Log::Error,
                 format!("cannot find identifier `{id}`"),
@@ -132,10 +131,10 @@ impl Zam {
                 traits,
             } => {
                 let Some(Term::Struct(vals)) = next() else {
-                    cur.err(format!("expected struct initalization, found type `{id}`"))?
+                    log.err(format!("expected struct initalization, found type `{id}`"))?
                 };
                 let mut pnt = Vec::new();
-                let err = cur.err;
+                let err = log.err;
 
                 self.r#struct(val);
 
@@ -155,7 +154,7 @@ impl Zam {
                         if pnt.len() == 1 { "" } else { "s" }
                     );
 
-                    cur.log(&mut pnt, Log::Error, msg, "");
+                    log(&mut pnt, Log::Error, msg, "");
                 }
 
                 let mut msg = String::from("missing field");
@@ -182,10 +181,10 @@ impl Zam {
                 }
 
                 if msg.len() > 14 {
-                    cur.err_rng(id.rng(), msg);
+                    log.err_rng(id.rng(), msg);
                 }
 
-                if err != cur.err {
+                if err != log.err {
                     return None;
                 }
 
@@ -201,9 +200,9 @@ impl Zam {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let cur = self.parser.bypass();
+        let log = self.cur().log.bypass();
 
-        cur.rng = kind.rng;
+        log.rng = kind.rng;
 
         let kind = &mut kind.data;
         let TypeKind::ID(id) = kind.bypass() else {
@@ -232,8 +231,8 @@ impl Zam {
         let mut pnt = Vec::new();
         let Some(res) = res else {
             // ehh try to refactor it
-            cur.log(
-                &mut [(cur.rng, Point::Error, label.unwrap_or_default())],
+            log.bypass()(
+                &mut [(log.rng, Point::Error, label.unwrap_or_default())],
                 Log::Error,
                 format!("cannot find type `{id}`"),
                 "",
@@ -286,8 +285,8 @@ impl Zam {
             _ => "",
         };
 
-        pnt.push((cur.rng, Point::Error, label));
+        pnt.push((log.rng, Point::Error, label));
 
-        return cur.log(&mut pnt, Log::Error, msg, note);
+        return log(&mut pnt, Log::Error, msg, note);
     }
 }

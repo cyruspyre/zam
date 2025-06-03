@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 
 use crate::{
+    misc::Bypass,
     parser::span::Span,
     zam::{
         expression::term::Term,
@@ -16,6 +17,7 @@ pub type Generic = IndexMap<Identifier, Vec<Trait>>;
 impl Parser {
     pub fn dec_gen(&mut self) -> Option<Generic> {
         let mut data = IndexMap::new();
+        let log = self.log.bypass();
 
         if self.might('>') {
             return Some(data);
@@ -25,7 +27,7 @@ impl Parser {
             let tmp = self.identifier(false, false)?;
 
             if tmp.is_empty() {
-                self.err_op(false, &[">", "<identifier>"])?
+                log.err_op(false, &[">", "<identifier>"])?
             }
 
             let de = self.expect_char(&[':', '>'])?;
@@ -56,10 +58,11 @@ impl Parser {
         }
 
         let idx = self.idx;
+        let log = self.log.bypass();
         let mut is_gen = false;
         let mut buf = Vec::new();
 
-        self.ignore = true;
+        log.ignore = true;
         self.idx += 1;
 
         while let Some(typ) = self.typ() {
@@ -79,7 +82,7 @@ impl Parser {
             }
         }
 
-        self.ignore = false;
+        log.ignore = false;
         let mut tmp = 0;
         let mut count = 1usize;
 
@@ -104,11 +107,11 @@ impl Parser {
         }
 
         if count != 0 {
-            self.err("unclosed generic parameter")?;
+            log.err("unclosed generic parameter")?;
         }
 
         if tmp != 0 {
-            self.rng.fill(tmp);
+            log.rng.fill(tmp);
             let mut op = Vec::new();
 
             let tmp = match buf.last() {
@@ -127,10 +130,10 @@ impl Parser {
             };
 
             op.push(tmp);
-            self.err_op(false, &op)?
+            log.err_op(false, &op)?
         }
 
-        self.rng = [idx + 1, self.idx];
+        log.rng = [idx + 1, self.idx];
 
         Some(Some(Term::Generic(buf)))
     }

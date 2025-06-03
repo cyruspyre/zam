@@ -1,6 +1,9 @@
 use indexmap::IndexMap;
 
-use crate::parser::log::{Log, Point};
+use crate::{
+    log::{Log, Point},
+    misc::Bypass,
+};
 
 use super::{expression::misc::Range, identifier::Identifier, Parser};
 
@@ -17,6 +20,7 @@ impl Parser {
         self.ensure_closed(de)?;
         let mut fields: IndexMap<Identifier, T> = IndexMap::new();
         let mut dup = IndexMap::new();
+        let log = self.log.bypass();
 
         loop {
             if self.might(de) {
@@ -30,11 +34,12 @@ impl Parser {
 
             let two = self.idx + 1;
             let data = T::field_value(self)?;
-            self.rng = [two, self.idx];
+            let src = &self.log.data;
+            log.rng = [two, self.idx];
 
-            while let Some(v) = self.data.get(self.rng[1]) {
+            while let Some(v) = src.get(log.rng[1]) {
                 if v.is_ascii_whitespace() {
-                    self.rng[1] -= 1
+                    log.rng[1] -= 1
                 } else {
                     break;
                 }
@@ -55,10 +60,10 @@ impl Parser {
             }
         }
 
-        self.rng.fill(self.idx);
+        log.rng.fill(self.idx);
 
         for (k, mut v) in dup {
-            self.log(
+            log(
                 &mut v,
                 Log::Error,
                 &format!("`{k}` declared multiple times"),

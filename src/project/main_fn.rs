@@ -1,7 +1,7 @@
 use strsim::jaro;
 
 use crate::{
-    parser::log::{Log, Point},
+    log::{Log, Point},
     zam::{expression::misc::Range, Entity},
 };
 
@@ -31,10 +31,10 @@ impl Project {
                     },
                 },
             ),
-            _ => ([src.parser.data.len(); 2], Point::Error, ""),
+            _ => ([src.log.data.len(); 2], Point::Error, ""),
         };
 
-        src.parser
-            .log(&mut [v], Log::Error, "expected `main` function", "");
+        src.log
+            .call(&mut [v], Log::Error, "expected `main` function", "");
     }
 }

@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
-use super::{
-    log::{Log, Point},
-    Parser,
-};
+use crate::log::{Log, Logger, Point};
+
 
 #[macro_export]
 macro_rules! err {
@@ -14,9 +12,9 @@ macro_rules! err {
     }};
 }
 
-impl Parser {
+impl Logger {
     pub fn err<'a, S: AsRef<str> + Display + From<&'a str>>(&mut self, msg: S) -> Option<!> {
-        self.log(&mut [(self.rng, Point::Error, "")], Log::Error, msg, "");
+        self.call(&mut [(self.rng, Point::Error, "")], Log::Error, msg, "");
 
         None
     }
@@ -49,7 +47,7 @@ impl Parser {
         pnt: [[usize; 2]; N],
         msg: S,
     ) -> Option<!> {
-        self.log(&mut pnt.map(|v| (v, Point::Error, "")), Log::Error, msg, "");
+        self.call(&mut pnt.map(|v| (v, Point::Error, "")), Log::Error, msg, "");
 
         None
     }

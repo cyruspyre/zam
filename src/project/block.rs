@@ -1,17 +1,19 @@
 use crate::{
     misc::{Bypass, Ref, RefMut},
-    zam::{block::Block, expression::misc::Range, statement::Statement, Entity, Lookup, Zam},
+    project::Project,
+    zam::{block::Block, expression::misc::Range, statement::Statement, Entity, Lookup},
 };
 
-impl Zam {
+impl Project {
     pub fn block(&mut self, block: &mut Block) {
+        let cur = self.cur().bypass();
         let dec = &mut block.dec;
-        let Lookup { vars, decs } = self.lookup.bypass();
+        let Lookup { vars, decs } = cur.lookup.bypass();
 
         decs.push(RefMut(dec.bypass()));
 
         for (id, val) in dec.bypass() {
-            self.parser.rng = id.rng();
+            cur.log.rng = id.rng();
 
             match val {
                 //Entity::Type { typ, public } => todo!(),

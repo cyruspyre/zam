@@ -1,6 +1,6 @@
-use crate::zam::{Entity, Zam};
+use crate::{project::Project, zam::Entity};
 
-impl Zam {
+impl Project {
     pub fn variable<'a>(&mut self, val: &mut Entity) {
         let Entity::Variable { exp, done, .. } = val else {
             return;

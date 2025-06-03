@@ -8,7 +8,10 @@ use std::fmt::Display;
 use kind::TypeKind;
 use misc::join;
 
-use crate::parser::{misc::CharExt, span::Span};
+use crate::{
+    misc::Bypass,
+    parser::{misc::CharExt, span::Span},
+};
 
 use super::{expression::group::GroupValue, fields::FieldValue, Parser};
 
@@ -61,6 +64,7 @@ impl Parser {
     pub fn typ(&mut self) -> Option<Type> {
         let mut rng = [0; 2];
         let mut ptr = [0; 2];
+        let log = self.log.bypass();
 
         loop {
             let n = match self.next_char_if(&['*', '&']) {
@@ -79,7 +83,7 @@ impl Parser {
         }
 
         if ptr[0] > 0 && ptr[1] > 0 {
-            self.err_rng(rng, "cannot mix pointers and reference")?
+            log.err_rng(rng, "cannot mix pointers and reference")?
         }
 
         let mut fun = self.might("fn");
@@ -99,10 +103,10 @@ impl Parser {
         let mut sub = Vec::new();
 
         if rng[0] == 0 {
-            rng[0] = self.rng[0]
+            rng[0] = log.rng[0]
         }
 
-        rng[1] = self.rng[1];
+        rng[1] = log.rng[1];
 
         if !tuple && self.might('<') {
             self.ensure_closed('>')?;
@@ -112,7 +116,7 @@ impl Parser {
                     break;
                 }
 
-                self.rng.fill(0);
+                log.rng.fill(0);
                 sub.push(self.typ()?);
 
                 if self.might('>') {
@@ -146,10 +150,10 @@ impl Parser {
         }
 
         rng[1] = self.idx;
-        self.rng = rng;
+        log.rng = rng;
 
         if raw && null != 0 {
-            self.err("cannot use nullable indicator with raw pointers")?
+            log.err("cannot use nullable indicator with raw pointers")?
         }
 
         Some(Type {
