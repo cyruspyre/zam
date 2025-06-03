@@ -38,18 +38,19 @@ impl Zam {
         let mut one = lookup.vars.iter_mut().map(|(k, v)| (&*k, v.deref_mut()));
         let mut two = VecDeque::new();
         let mut iter = lookup.decs.iter_mut();
-        let mut tmp = match iter.next() {
-            Some(v) => Some(v),
-            _ => Some(RefMut(&mut zam.block.dec).bypass()),
-        };
 
-        while let Some(dec) = tmp.take() {
+        loop {
+            let dec = match iter.next() {
+                Some(v) => &mut **v,
+                _ if two.is_empty() => zam.block.dec.bypass(),
+                _ => break,
+            };
+
             if let Some((_, k, v)) = dec.bypass().get_full_mut(id) {
                 return Some(Ok((k, v.into())));
             }
 
             two.push_back(dec.iter_mut().map(|(k, v)| (k, v)));
-            tmp = iter.next();
         }
 
         let mut res: (f64, Option<(&Identifier, &mut Entity)>) = (0.0, None);

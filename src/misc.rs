@@ -2,7 +2,7 @@ use std::{
     borrow::Borrow,
     fmt::Debug,
     ops::{Deref, DerefMut},
-    ptr::null,
+    ptr::{null, null_mut},
 };
 
 pub type Result<T> = std::result::Result<T, T>;
@@ -34,8 +34,14 @@ impl<T> Either<T> for Result<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct Ref<T: ?Sized>(pub *const T);
+
+impl<T> Borrow<T> for Ref<T> {
+    fn borrow(&self) -> &T {
+        self
+    }
+}
 
 impl<T> Default for Ref<T> {
     fn default() -> Self {
@@ -51,20 +57,26 @@ impl<T> Deref for Ref<T> {
     }
 }
 
-impl<T> Borrow<T> for Ref<T> {
-    fn borrow(&self) -> &T {
-        self
-    }
-}
-
 impl<T: Debug + ?Sized> Debug for Ref<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe { (*self.0).fmt(f) }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl<T> Clone for Ref<T> {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct RefMut<T>(pub *mut T);
+
+impl<T> Default for RefMut<T> {
+    fn default() -> Self {
+        Self(null_mut())
+    }
+}
 
 impl<T> Deref for RefMut<T> {
     type Target = T;
@@ -77,5 +89,11 @@ impl<T> Deref for RefMut<T> {
 impl<T> DerefMut for RefMut<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.0 }
+    }
+}
+
+impl<T> Clone for RefMut<T> {
+    fn clone(&self) -> Self {
+        Self(self.0)
     }
 }
