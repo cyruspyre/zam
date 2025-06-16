@@ -1,5 +1,5 @@
 # Zam
-An experimental general-purpose programming language inspired by Rust. Featuring static typing, generics, traits, and more.
+An experimental general-purpose programming language inspired by Rust, but more relaxed. Featuring static typing, generics, traits, and more.
 ## Planned Features
 - C interop with minimal pain as much as possible
 - Interpreter and JIT mode for fast development cycle
