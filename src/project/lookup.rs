@@ -17,7 +17,8 @@ use crate::{
 
 impl Project {
     pub fn lookup(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
-        let mut zam = self.cur();
+        let cur = self.cur();
+        let mut zam = &mut *cur.zam;
 
         for key in id.iter() {
             let Some(next) = zam.mods.get_mut(&key.data) else {
@@ -26,6 +27,8 @@ impl Project {
 
             zam = next
         }
+
+        cur.global = zam.block.global;
 
         let lookup = zam.lookup.bypass();
         let id = id.leaf_name();
@@ -87,13 +90,13 @@ impl Project {
         }
     }
 
-    pub fn as_typ<'a, F>(&mut self, id: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
+    pub fn as_typ<'a, F>(&mut self, id_exp: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let log = self.cur().log.bypass();
-        let res = self.bypass().lookup(id);
-        let Some(Ok((k, val))) = res else {
+        let log = self.cur().zam.log.bypass();
+        let res = self.bypass().lookup(id_exp);
+        let Some(Ok((id_entity, val))) = res else {
             let mut pnt = Vec::new();
 
             if let Some(Err((k, v))) = res {
@@ -104,11 +107,11 @@ impl Project {
                 ));
             }
 
-            pnt.push((id.rng(), Point::Error, String::new()));
+            pnt.push((id_exp.rng(), Point::Error, String::new()));
             log(
                 &mut pnt,
                 Log::Error,
-                format!("cannot find identifier `{id}`"),
+                format!("cannot find identifier `{id_exp}`"),
                 "",
             );
             return None;
@@ -131,12 +134,14 @@ impl Project {
                 traits,
             } => {
                 let Some(Term::Struct(vals)) = next() else {
-                    log.err(format!("expected struct initalization, found type `{id}`"))?
+                    log.err(format!(
+                        "expected struct initalization, found type `{id_entity}`"
+                    ))?
                 };
                 let mut pnt = Vec::new();
                 let err = log.err;
 
-                self.r#struct(val);
+                self.r#struct(id_entity, val);
 
                 for (k, exp) in &mut *vals {
                     if let Some(v) = fields.get(k) {
@@ -150,7 +155,7 @@ impl Project {
 
                 if pnt.len() != 0 {
                     let msg = format!(
-                        "unknown field{} for struct `{id}`",
+                        "unknown field{} for struct `{id_entity}`",
                         if pnt.len() == 1 { "" } else { "s" }
                     );
 
@@ -181,7 +186,7 @@ impl Project {
                 }
 
                 if msg.len() > 14 {
-                    log.err_rng(id.rng(), msg);
+                    log.err_rng(id_exp.rng(), msg);
                 }
 
                 if err != log.err {
@@ -189,7 +194,7 @@ impl Project {
                 }
 
                 Cow::Owned(TypeKind::Entity {
-                    id: Ref(k),
+                    id: Ref(id_entity),
                     data: RefMut(val),
                 })
             }
@@ -200,7 +205,7 @@ impl Project {
     }
 
     pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let log = self.cur().log.bypass();
+        let log = self.cur().zam.log.bypass();
 
         log.rng = kind.rng;
 

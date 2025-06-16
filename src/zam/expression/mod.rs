@@ -130,7 +130,7 @@ impl Parser {
         let mut ass = true; // assignable...
         let mut was_op = true;
         let log = self.log.bypass();
-        let last = match self.de.back() {
+        let last = match self.de.front() {
             Some(n) => n - 1,
             _ => 0,
         };

@@ -6,9 +6,9 @@ use threadpool::ThreadPool;
 use crate::{
     cfg::Config,
     err,
-    misc::Bypass,
+    misc::{Bypass, Ref},
     project::Project,
-    zam::{block::Impls, Zam},
+    zam::{block::Impls, path::ZamPath, Zam},
 };
 
 pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
@@ -22,18 +22,28 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
 
     path.push("src");
 
+    let zam_id = ZamPath(vec![Ref(&cfg.pkg.name)]);
     let mut impls: Impls = IndexMap::new();
-    let mut parse = |path: PathBuf, required: bool| Zam::parse(path, required, &mut impls);
-    let mut root = parse(path.join("main.z"), true);
-    let mut stack = Vec::from([(path, &mut root.mods, None)]);
+    let mut parse =
+        |path: PathBuf, required: bool, id: ZamPath| Zam::parse(path, required, &mut impls, id);
+    let mut root = parse(path.join("main.z"), true, zam_id.clone());
+    let mut stack = Vec::from([(path, zam_id, &mut root.mods, None::<Box<dyn FnOnce()>>)]);
 
-    while let Some((cur, mods, remover)) = stack.pop() {
+    while let Some((cur, mut zam_id, mods, remover)) = stack.pop() {
         let Ok(mut entries) = cur.read_dir() else {
             continue;
         };
-        let stamp = mods.len();
+        let mut val = entries.next();
 
-        while let Some(res) = entries.next() {
+        if val.is_none()
+            && let Some(fun) = remover
+        {
+            fun()
+        }
+
+        while let Some(res) = val.take() {
+            val = entries.next();
+
             let Ok(entry) = res else { continue };
             let Ok(typ) = entry.file_type() else { continue };
             let path = entry.path();
@@ -43,38 +53,38 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
             };
 
             if typ.is_dir() {
-                let zam = parse(path.join("mod.z"), false);
+                zam_id.push(Ref(&key));
+                let zam = parse(path.join("mod.z"), false, zam_id.clone());
                 let mut entry = mods.bypass().entry(key).insert_entry(zam);
                 let parent = mods.bypass();
 
                 stack.push((
                     path,
+                    zam_id.clone(),
                     entry.get_mut().mods.bypass(),
-                    Some(move || {
+                    Some(Box::new(move || {
                         parent.swap_remove(entry.key());
-                    }),
+                    })),
                 ));
+                zam_id.pop();
                 continue;
             }
 
-            if !typ.is_file()
-                || *match entry.file_name().to_str() {
-                    Some("main.z") => &path,
-                    Some("mod.z") => &root.log.path,
-                    _ => &cur,
-                } == path
-            {
+            if !typ.is_file() || {
+                let tmp = cur == root.log.path.parent().unwrap();
+
+                if key == "main" {
+                    tmp
+                } else {
+                    !tmp
+                }
+            } {
                 continue;
             }
 
-            mods.insert(key, parse(path, true));
-        }
-
-        // omit directories with empty zam src files
-        if mods.len() == stamp
-            && let Some(mut fun) = remover
-        {
-            fun()
+            zam_id.push(Ref(&key));
+            mods.insert(key, parse(path, true, zam_id.clone()));
+            zam_id.pop();
         }
     }
 

@@ -78,7 +78,7 @@ impl Parser {
                     }
 
                     buf.push(WTF::Exp(self.exp(['}'], true)?.0));
-                    self.de.pop_back();
+                    self.de.pop_front();
                     self.idx += 1;
                     continue;
                 }
@@ -95,7 +95,7 @@ impl Parser {
         }
 
         log.rng[1] = self.idx;
-        self.de.pop_back();
+        self.de.pop_front();
 
         if de == '"' {
             if buf.len() == 1 {

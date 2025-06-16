@@ -10,10 +10,7 @@ use std::{
 
 use colored::{Color, Colorize};
 
-use crate::{
-    misc::{Bypass, Either},
-    parser::{span::Span, Context},
-};
+use crate::misc::{Bypass, Either};
 
 #[derive(Default)]
 pub struct Logger {
@@ -23,7 +20,7 @@ pub struct Logger {
     pub rng: [usize; 2],
     pub eof: bool,
     pub err: usize,
-    pub ctx: Option<Span<Context>>,
+    pub ctx: Option<([usize; 2], Point, &'static str)>,
     pub ignore: bool,
 }
 
@@ -33,7 +30,7 @@ pub enum Log {
     Warning,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Point {
     None,
     Info,
@@ -63,7 +60,7 @@ impl Logger {
 
         let mut io = BufWriter::new(stderr().lock());
         let typ = match typ {
-            Log::Error => "error".red(),
+            Log::Error => "error".bright_red(),
             Log::Warning => "warning".bright_yellow(),
         };
 
@@ -77,24 +74,22 @@ impl Logger {
 
         let mut iter = pnt.bypass().into_iter().peekable();
         let mut val = None;
-        let line = |n: usize| {
-            self.line
-                .binary_search(&n)
-                .either()
-                .add(1)
-                .ilog10()
-                .add(1)
-                .try_into()
-                .unwrap()
-        };
-        let pad = line(pnt.last().unwrap().0[0]);
-        let border = format!("{} {}", " ".repeat(pad), "-".black());
+        let pad = self
+            .line
+            .binary_search(&pnt.last().unwrap().0[0])
+            .either()
+            .add(1)
+            .ilog10()
+            .add(1)
+            .try_into()
+            .unwrap();
+        let border = format!("{} {}", " ".repeat(pad), "-".bright_black());
         let first = pnt[0].0[0];
         let tmp = self.line.binary_search(&first).either();
         let buf = format!(
             "{}{} {}:{}:{}\n",
             " ".repeat(pad),
-            "-->".black(),
+            "-->".bright_black(),
             self.path.display(),
             tmp + 1,
             first - self.line.get(tmp.wrapping_sub(1)).unwrap_or(&0),
@@ -111,18 +106,10 @@ impl Logger {
 
                 val = if tmp
                     && let Some(ctx) = &self.ctx
-                    && ctx.rng[0] < rng[0]
+                    && ctx.0[0] < rng[0]
                 {
                     tmp = false;
-                    let msg = Cow::Owned(format!(
-                        "{} this {}",
-                        if self.eof { "in" } else { "while parsing" },
-                        match **ctx {
-                            Context::Struct => "struct",
-                            Context::Function => "function",
-                        }
-                    ));
-                    Some((ctx.rng, Point::Info, msg))
+                    Some((ctx.0, ctx.1, Cow::Borrowed(ctx.2)))
                 } else {
                     iter.next();
                     Some((
@@ -149,18 +136,18 @@ impl Logger {
                 self.line.push(tmp);
             }
 
-            let tmp = self.line.binary_search(&rng[0]).either();
-            let line = tmp.add(1).to_string().black();
-            let start = match self.line.get(tmp.wrapping_sub(1)) {
+            let line_idx = self.line.binary_search(&rng[0]).either();
+            let line = line_idx.add(1).to_string().bright_black();
+            let start = match self.line.get(line_idx.wrapping_sub(1)) {
                 Some(n) => n + 1,
                 _ => 0,
             };
-            let end = self.line.get(tmp).unwrap() - 1;
+            let end = self.line.get(line_idx).unwrap() - 1;
             let code: String = self.data[start..=end].iter().collect();
             let buf = format!(
                 "{border}\n{line}{} {} {code}\n{border} ",
                 " ".repeat(pad - line.len()),
-                "|".black(),
+                "|".bright_black(),
             );
 
             io.write(buf.as_bytes()).unwrap();
@@ -169,7 +156,7 @@ impl Logger {
             let mut flag = false;
 
             while let Some((rng, pnt, label)) = iter.bypass().peek_mut() {
-                let (rng, label) = if end > rng[1] {
+                let (rng, label) = if end >= rng[1] {
                     let tmp = Cow::Borrowed(unsafe { &*(label.as_ref() as *const _) });
 
                     (*rng, tmp)
@@ -192,10 +179,10 @@ impl Logger {
                 for (i, rng, pnt, label) in labels.bypass() {
                     let color = match pnt {
                         Point::Info => Color::BrightBlue,
-                        Point::Error => Color::Red,
+                        Point::Error => Color::BrightRed,
                         _ => Color::BrightYellow,
                     };
-                    let pnt_ = match pnt {
+                    let pnt = match pnt {
                         _ if flag => "|",
                         Point::Info => "-",
                         Point::None => "",
@@ -204,7 +191,7 @@ impl Logger {
                     let buf = format!(
                         "{}{}",
                         " ".repeat(rng[0].min(rng[1]) - tmp),
-                        pnt_.repeat(rng[1].saturating_sub(rng[0]) + 1).color(color)
+                        pnt.repeat(rng[1].saturating_sub(rng[0]) + 1).color(color)
                     );
 
                     tmp = rng[1] + *i;
@@ -219,10 +206,6 @@ impl Logger {
                         let buf = format!(" {}", label.color(color));
 
                         io.write(buf.as_bytes()).unwrap();
-                    }
-
-                    if label.is_empty() {
-                        labels.pop();
                     }
                 }
 
@@ -244,7 +227,7 @@ impl Logger {
             let buf = format!(
                 "{} {} {}: {note}\n",
                 " ".repeat(pad),
-                "=".black(),
+                "=".bright_black(),
                 "note".bold()
             );
             io.write(buf.as_bytes()).unwrap();
@@ -269,7 +252,7 @@ where
     }
 }
 
-impl<P, M, N> FnMut<(&'_ mut [([usize; 2], Point, P)], Log, M, N)> for Logger
+impl<P, M, N> FnMut<Args<'_, P, M, N>> for Logger
 where
     P: Display + AsRef<str>,
     M: Display + AsRef<str>,

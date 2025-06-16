@@ -1,7 +1,6 @@
 pub mod generic;
 pub mod kind;
 mod misc;
-mod r#trait;
 
 use std::fmt::Display;
 
@@ -126,7 +125,7 @@ impl Parser {
                 self.expect_char(&[','])?;
             }
 
-            self.de.pop_back();
+            self.de.pop_front();
         }
 
         let data = if fun {

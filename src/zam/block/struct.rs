@@ -2,8 +2,7 @@ use indexmap::IndexMap;
 
 use crate::{
     misc::Bypass,
-    parser::{span::ToSpan, Context},
-    zam::{expression::misc::Range, identifier::Identifier, Entity},
+    zam::{identifier::Identifier, Entity},
 };
 
 use super::Parser;
@@ -22,7 +21,7 @@ impl Parser {
         }
 
         let ctx = self.log.ctx.bypass();
-        *ctx = Some(Context::Struct.span(name.rng()));
+        // *ctx = Some(Context::Struct.span(name.rng()));
         let fields = self.fields('}')?;
         *ctx = None;
 

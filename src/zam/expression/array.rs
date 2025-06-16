@@ -58,7 +58,7 @@ impl Parser {
             self.expect(&[','])?;
         }
 
-        self.de.pop_back();
+        self.de.pop_front();
 
         Some(Term::Array { val, len })
     }

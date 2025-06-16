@@ -6,19 +6,20 @@ use crate::{
 
 impl Project {
     pub fn block(&mut self, block: &mut Block) {
-        let cur = self.cur().bypass();
-        let dec = &mut block.dec;
-        let Lookup { vars, decs } = cur.lookup.bypass();
+        let zam = &mut **self.cur().zam.bypass();
+        let dec = block.dec.bypass();
+        let Lookup { vars, decs } = zam.lookup.bypass();
 
         decs.push(RefMut(dec.bypass()));
 
         for (id, val) in dec.bypass() {
-            cur.log.rng = id.rng();
+            zam.log.rng = id.rng();
 
             match val {
+                Entity::Trait { .. } => todo!(),
                 //Entity::Type { typ, public } => todo!(),
                 Entity::Variable { .. } => self.variable(val),
-                Entity::Struct { .. } => self.r#struct(val),
+                Entity::Struct { .. } => self.r#struct(id, val),
                 Entity::Function { .. } => self.fun(val),
             }
         }

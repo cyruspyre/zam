@@ -10,46 +10,89 @@ use crate::{
     },
 };
 
-use super::{r#trait::Trait, Parser};
+use super::Parser;
 
 pub type Generic = IndexMap<Identifier, Vec<Trait>>;
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Trait {
+    name: Identifier,
+    sub: Vec<Trait>,
+}
+
 impl Parser {
     pub fn dec_gen(&mut self) -> Option<Generic> {
-        let mut data = IndexMap::new();
-        let log = self.log.bypass();
+        let mut gen = IndexMap::new();
 
-        if self.might('>') {
-            return Some(data);
+        if !self.might('<') {
+            return Some(gen);
         }
 
-        'main: loop {
-            let tmp = self.identifier(false, false)?;
+        let idx = self.ensure_closed('>')?;
 
-            if tmp.is_empty() {
-                log.err_op(false, &[">", "<identifier>"])?
-            }
+        loop {
+            self.might('>');
 
-            let de = self.expect_char(&[':', '>'])?;
-            data.insert(tmp, Vec::new());
-
-            if de == '>' {
+            if self.idx == idx {
                 break;
             }
 
-            loop {
-                // todo: try to eliminate trt() as it looks redundant and is used only once
-                data.last_mut().unwrap().1.push(self.trt()?);
+            let key = self.identifier(true, false)?;
+            let mut value = Vec::new();
 
-                match self.expect_char(&['+', ',', '>'])? {
-                    '+' => {}
-                    ',' => break,
-                    _ => break 'main,
+            if self.might('>') {
+                break;
+            }
+
+            if self.expect_char(&[':', ','])? != ':' {
+                continue;
+            }
+
+            loop {
+                value.push(self._trait()?);
+
+                if self.might('>') || self.expect_char(&['+', ','])? != '+' {
+                    break;
                 }
             }
+
+            gen.insert(key, value);
         }
 
-        Some(data)
+        self.de.pop_front();
+
+        Some(gen)
+    }
+
+    fn _trait(&mut self) -> Option<Trait> {
+        let name = self.identifier(true, true)?;
+        let mut sub = Vec::new();
+
+        if !self.might('<') {
+            return Some(Trait { name, sub });
+        }
+
+        let idx = self.ensure_closed('>')?;
+
+        loop {
+            self.might('>');
+
+            if self.idx == idx {
+                break;
+            }
+
+            sub.push(self._trait()?);
+
+            if self.might('>') {
+                break;
+            }
+
+            self.expect(&[','])?;
+        }
+
+        self.de.pop_front();
+
+        Some(Trait { name, sub })
     }
 
     pub fn stm_gen(&mut self) -> Option<Option<Term>> {

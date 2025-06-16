@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, fs::read_to_string, path::PathBuf};
+use std::{collections::VecDeque, fmt::Debug, fs::read_to_string, path::PathBuf};
 
 use block::{Block, BlockType};
 use expression::Expression;
@@ -11,7 +11,7 @@ use crate::{
     log::{Log, Logger},
     misc::{Ref, RefMut},
     parser::Parser,
-    zam::block::Impls,
+    zam::{block::Impls, path::ZamPath},
 };
 
 pub mod block;
@@ -19,11 +19,14 @@ pub mod expression;
 mod external;
 pub mod fields;
 pub mod identifier;
+mod misc;
+pub mod path;
 pub mod statement;
 pub mod typ;
 
 #[derive(Default)]
 pub struct Zam {
+    pub id: ZamPath,
     pub log: Logger,
     pub block: Block,
     pub parent: RefMut<Zam>,
@@ -53,6 +56,11 @@ pub enum Entity {
         impls: IndexMap<Identifier, Entity>,
         traits: IndexMap<Identifier, [usize; 2]>,
     },
+    Trait {
+        gen: Generic,
+        /// Will always contain `Entity::Function` or `Entity::Type`
+        item: IndexMap<Identifier, Entity>,
+    },
     Variable {
         exp: Expression,
         cte: bool,
@@ -63,6 +71,7 @@ pub enum Entity {
 impl Entity {
     pub fn name(&self) -> &str {
         match self {
+            Entity::Trait { .. } => "trait",
             Entity::Struct { .. } => "struct",
             Entity::Variable { .. } => "variable",
             Entity::Function { .. } => "function",
@@ -71,10 +80,11 @@ impl Entity {
 }
 
 impl Zam {
-    pub fn parse(path: PathBuf, required: bool, impls: &mut Impls) -> Self {
+    pub fn parse(path: PathBuf, required: bool, impls: &mut Impls, id: ZamPath) -> Self {
         let res = read_to_string(&path);
         let err = res.is_err();
         let mut parser = Parser {
+            id: Ref(&id),
             log: Logger {
                 path,
                 data: res.unwrap_or_default().chars().collect(),
@@ -102,6 +112,7 @@ impl Zam {
         log.eof = true;
 
         Self {
+            id,
             log,
             block,
             ..Default::default()

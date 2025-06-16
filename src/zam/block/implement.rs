@@ -3,11 +3,11 @@ use std::mem::swap;
 use crate::{
     misc::{Bypass, Ref},
     parser::Parser,
-    zam::block::BlockType,
+    zam::block::{BlockType, ImplsLocal},
 };
 
 impl Parser {
-    pub fn implement(&mut self) -> Option<()> {
+    pub fn implement(&mut self, impls: &mut ImplsLocal, global: bool) -> Option<()> {
         let gen = match self.might('<') {
             true => self.dec_gen()?,
             _ => Default::default(),
@@ -24,13 +24,18 @@ impl Parser {
             swap(&mut id_one, &mut id_two);
         }
 
-        self.impls
-            .bypass()
-            .entry(Ref(&id_one.leaf_name().data))
-            .or_default()
-            .entry(Ref(self.log.path.as_path()))
-            .or_default()
-            .push(([id_one, id_two], gen, self.block(BlockType::Impl)?));
+        let tmp = if global {
+            self.impls
+                .bypass()
+                .entry(Ref(&id_one.leaf_name().data))
+                .or_default()
+                .entry(self.id)
+                .or_default()
+        } else {
+            impls.entry(Ref(&id_one.leaf_name().data)).or_default()
+        };
+
+        tmp.push(([id_one, id_two], gen, self.block(BlockType::Impl)?));
 
         Some(())
     }

@@ -12,7 +12,7 @@ pub trait Bypass {
     /// Bypasses rust's lifetime rules
     ///
     /// # Warning
-    /// The caller must ensure it's okay to have multiple mutable references otherwise it's UB.
+    /// The caller must ensure it's okay to have multiple mutable references otherwise it's undefined behavior.
     #[inline]
     fn bypass<'a, 'b>(&'a mut self) -> &'b mut Self {
         unsafe { &mut *(self as *mut _) }
@@ -31,6 +31,33 @@ impl<T> Either<T> for Result<T> {
             Ok(v) => v,
             Err(e) => e,
         }
+    }
+}
+
+/// A wrapper around `Drop` implementation to perform custom cleanup in niche cases.
+///
+/// It is useful when you have to perform cleanup when breaking/returning early or come across an error while error propagating.
+///
+/// # Examples
+///
+/// Correct usage:
+/// ```
+/// let __ = CustomDrop(|| {}); // Drops when it goes out of scope
+/// ```
+///
+/// *Same goes for any function returning `CustomDrop`*
+///
+/// Incorrect usage:
+/// ```
+/// CustomDrop(|| {}); // Drops right away
+/// let _ = CustomDrop(|| {}); // also drops right away
+/// ```
+pub struct CustomDrop<F: FnMut()>(pub F);
+
+impl<F: FnMut()> Drop for CustomDrop<F> {
+    #[inline]
+    fn drop(&mut self) {
+        self.0()
     }
 }
 
@@ -69,8 +96,17 @@ impl<T> Clone for Ref<T> {
     }
 }
 
+impl<T> Copy for Ref<T> {}
+
 #[derive(Debug, PartialEq)]
 pub struct RefMut<T>(pub *mut T);
+
+impl<T> RefMut<T> {
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+}
 
 impl<T> Default for RefMut<T> {
     fn default() -> Self {

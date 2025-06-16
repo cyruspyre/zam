@@ -19,7 +19,7 @@ impl Parser {
         }
 
         self.idx += 1;
-        self.de.pop_back();
+        self.de.pop_front();
         self.log.rng.fill(self.idx);
 
         Some(buf)

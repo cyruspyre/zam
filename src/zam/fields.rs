@@ -71,7 +71,7 @@ impl Parser {
             );
         }
 
-        self.de.pop_back();
+        self.de.pop_front();
 
         Some(fields)
     }

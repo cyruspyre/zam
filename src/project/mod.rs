@@ -20,7 +20,12 @@ pub struct Project {
     pub cfg: Config,
     pub root: Zam,
     pub impls: Impls,
-    pub cur: Vec<(ThreadId, RefMut<Zam>)>,
+    pub cur: Vec<(ThreadId, Current)>,
+}
+
+pub struct Current {
+    zam: RefMut<Zam>,
+    global: bool,
 }
 
 impl Project {
@@ -33,7 +38,13 @@ impl Project {
         let mut stack = vec![&mut tmp.root];
 
         while let Some(zam) = stack.pop() {
-            self.cur.push((current().id(), RefMut(zam)));
+            self.cur.push((
+                current().id(),
+                Current {
+                    zam: RefMut(zam),
+                    global: true,
+                },
+            ));
             self.block(&mut zam.block);
             self.cur.swap_remove(self.cur_idx());
 
@@ -63,7 +74,7 @@ impl Project {
         self.cur.iter().position(|v| v.0 == id).unwrap()
     }
 
-    pub fn cur(&mut self) -> &mut Zam {
+    pub fn cur(&mut self) -> &mut Current {
         &mut self.bypass().cur[self.cur_idx()].1
     }
 }

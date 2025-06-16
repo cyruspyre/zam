@@ -1,21 +1,19 @@
 pub mod misc;
 pub mod span;
 
-use std::{any::TypeId, collections::VecDeque, fmt::Display};
+use std::{collections::VecDeque, fmt::Display};
 
 use misc::CharExt;
 
 use crate::{
-    log::{Log, Logger, Point}, misc::{Bypass, Either, RefMut, Result}, zam::block::Impls
+    log::{Log, Logger, Point},
+    misc::{Bypass, Either, Ref, RefMut, Result},
+    zam::{block::Impls, path::ZamPath},
 };
-
-pub enum Context {
-    Struct,
-    Function,
-}
 
 #[derive(Default)]
 pub struct Parser {
+    pub id: Ref<ZamPath>,
     pub log: Logger,
     pub idx: usize,
     pub de: VecDeque<usize>,
@@ -23,6 +21,12 @@ pub struct Parser {
 }
 
 impl Parser {
+    pub fn de_rng(&mut self) {
+        if let Some(v) = self.de.front() {
+            self.log.rng[1] = self.log.rng[1].min(v - 1)
+        }
+    }
+
     pub fn _next<'a>(&'a mut self) -> Option<char> {
         let line = self.log.line.bypass();
 
@@ -55,8 +59,6 @@ impl Parser {
         let mut op: Vec<_> = op.into_iter().map(|v| v.to_string()).collect();
         let mut buf = String::new();
         let mut ok = false;
-        let de = *self.de.back().unwrap_or(&0);
-        let mut early = true;
 
         op.sort_unstable();
 
@@ -79,23 +81,14 @@ impl Parser {
                 ok = true;
                 break;
             }
-
-            if de == self.idx {
-                self.idx -= 1;
-                early = false;
-                buf.pop();
-                break;
-            }
         }
 
         if !ok {
             self.idx = tmp;
         }
 
-        if ok || early {
-            rng[1] += buf.len().checked_sub(1).unwrap_or_default();
-            self.log.rng = rng;
-        }
+        rng[1] += buf.len().checked_sub(1).unwrap_or_default();
+        self.log.rng = rng;
 
         match ok {
             true => Ok(buf),
@@ -218,7 +211,7 @@ impl Parser {
     }
 
     #[must_use]
-    pub fn ensure_closed(&mut self, de: char) -> Option<()> {
+    pub fn ensure_closed(&mut self, de: char) -> Option<usize> {
         let log = self.log.bypass();
         let data = &log.data;
         let tmp = self.idx;
@@ -243,9 +236,12 @@ impl Parser {
 
             if c == de {
                 if count == 0 {
-                    self.de.push_back(self.idx);
+                    let res = self.idx;
+
+                    self.de.push_front(res);
                     self.idx = tmp;
-                    return Some(());
+
+                    return Some(res);
                 } else {
                     count -= 1
                 }
@@ -272,7 +268,7 @@ impl Parser {
             pnt.push(([string; 2], Point::Info, &label))
         }
 
-        pnt.push(([self.idx + 1; 2], Point::Error, ""));
+        pnt.push(([self.idx + 1; 2], Point::Error, "end of file"));
 
         log(
             &mut pnt,
@@ -296,13 +292,13 @@ impl Parser {
 
         while let Some(c) = self._next() {
             if c.is_ascii_whitespace() || c.is_id() != typ {
+                self.idx -= 1;
                 break;
             }
 
             buf.push(c);
         }
 
-        self.idx -= 1;
         rng[1] = self.idx;
 
         Some(buf)
@@ -320,7 +316,7 @@ impl Parser {
     }
 
     #[must_use]
-    pub fn expect<T: Display + 'static>(&mut self, op: &[T]) -> Option<String> {
+    pub fn expect<T: Display>(&mut self, op: &[T]) -> Option<String> {
         let rng = self.log.rng;
         let log = self.log.bypass();
         let tmp = self.next_if(op);
@@ -332,14 +328,11 @@ impl Parser {
                 .get(line.binary_search(&rng[0]).either())
                 .is_some_and(|v| idx > *v);
 
-            if !tmp.is_empty() && TypeId::of::<T>() == TypeId::of::<char>() {
-                log.rng[0] = log.rng[1];
-            }
-
             if multiline {
                 log.rng = rng
             }
 
+            self.de_rng();
             log.err_op(tmp.is_empty() || multiline, &op)?
         }
 

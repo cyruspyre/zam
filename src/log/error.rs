@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use crate::log::{Log, Logger, Point};
 
-
 #[macro_export]
 macro_rules! err {
     ($($arg:tt)*) => {{

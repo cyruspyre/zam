@@ -20,7 +20,7 @@ impl Project {
             self.location(exp.data.rng())
         );
 
-        let log = self.cur().log.bypass();
+        let log = self.cur().zam.log.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 

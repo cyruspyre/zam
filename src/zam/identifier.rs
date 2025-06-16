@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
 };
 
@@ -11,12 +12,11 @@ use crate::{
         span::{Span, ToSpan},
         Parser,
     },
+    zam::{expression::misc::Range, misc::display, path::ZamPath},
 };
 
-use super::expression::misc::Range;
-
-#[derive(Default, Clone, PartialEq, Eq, Hash)]
-pub struct Identifier(Vec<Span<String>>);
+#[derive(Default, Clone, Eq)]
+pub struct Identifier(pub(super) Vec<Span<String>>);
 
 impl Identifier {
     pub fn is_empty(&self) -> bool {
@@ -29,6 +29,14 @@ impl Identifier {
 
     pub fn is_qualified(&self) -> bool {
         self.0.len() > 1
+    }
+
+    pub fn qualify<T: Borrow<String>>(base: &[T]) -> Self {
+        todo!()
+    }
+
+    pub fn relative(&self, base: &ZamPath) -> Self {
+        Self(self[base.len()..].to_vec())
     }
 }
 
@@ -58,6 +66,18 @@ impl Borrow<Span<String>> for Ref<Identifier> {
     }
 }
 
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.leaf_name() == other.leaf_name()
+    }
+}
+
+impl Hash for Identifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.leaf_name().hash(state);
+    }
+}
+
 impl Range for Identifier {
     fn rng(&self) -> [usize; 2] {
         self.0.rng()
@@ -83,26 +103,14 @@ impl<S: AsRef<str>, const N: usize> From<[S; N]> for Identifier {
 }
 
 impl Debug for Identifier {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str(&format!("\"{self}\""))
     }
 }
 
 impl Display for Identifier {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut buf = String::new();
-        let tmp = &self.0;
-
-        for i in 0..tmp.len().checked_sub(1).unwrap_or_default() {
-            buf += &tmp[i];
-            buf += "::";
-        }
-
-        if let Some(v) = tmp.last() {
-            buf += v
-        }
-
-        f.write_str(&buf)
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        display(&self.0, f)
     }
 }
 
@@ -155,13 +163,16 @@ impl Parser {
         match msg.len() {
             0 => {}
             12 => {
-                let rng = log.rng;
-                let mut after = self.id_or_symbol().is_none();
+                self.skip_whitespace();
 
-                if log.data[log.rng[0] - 1] == '\n' {
-                    log.rng = rng;
-                    after = true;
-                }
+                let after = if matches!(self.de.front(), Some(v) if self.idx == v - 1) {
+                    true
+                } else {
+                    self.id_or_symbol();
+                    self.de_rng();
+
+                    false
+                };
 
                 log.err_op(after, &[msg])?
             }

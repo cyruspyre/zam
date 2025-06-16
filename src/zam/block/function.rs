@@ -9,7 +9,7 @@ use crate::zam::{
 use super::{BlockType, Parser};
 
 impl Parser {
-    pub fn fun(&mut self) -> Option<(Identifier, Entity)> {
+    pub fn fun(&mut self, require_body: bool) -> Option<(Identifier, Entity)> {
         let name = self.identifier(true, false)?;
         let de = self.expect_char(&['<', '('])?;
         let gen = match de {
