@@ -7,14 +7,13 @@ use std::{
     process::exit,
 };
 
-use indexmap::IndexMap;
 use semver::VersionReq;
 use serde::{
     de::{Error, IntoDeserializer, MapAccess, Visitor},
     Deserialize, Deserializer,
 };
 
-use crate::{err, log::Logger};
+use crate::{err, log::Logger, naive_map::NaiveMap};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,7 +21,7 @@ pub struct Config {
     #[serde(rename = "package")]
     pub pkg: Package,
     #[serde(rename = "dependencies", deserialize_with = "deps")]
-    pub deps: IndexMap<String, VersionReq>,
+    pub deps: NaiveMap<String, VersionReq>,
     #[serde(skip, default = "misc::size")]
     pub bit: u32,
 }
@@ -45,14 +44,14 @@ impl Config {
     }
 }
 
-fn deps<'de, D>(de: D) -> Result<IndexMap<String, VersionReq>, D::Error>
+fn deps<'de, D>(de: D) -> Result<NaiveMap<String, VersionReq>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct _Visitor;
 
     impl<'de> Visitor<'de> for _Visitor {
-        type Value = IndexMap<String, VersionReq>;
+        type Value = NaiveMap<String, VersionReq>;
 
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_str("table")
@@ -62,14 +61,14 @@ where
         where
             A: MapAccess<'de>,
         {
-            let mut tmp = IndexMap::new();
+            let mut tmp = NaiveMap::new();
 
             while let Some((key, value)) = map.next_entry::<String, _>()? {
                 if let Some(e) = validate_id(&key) {
                     return Err(e);
                 }
 
-                if tmp.insert(key, value).is_some() {
+                if tmp.insert(key, value) {
                     return Err(Error::duplicate_field(tmp.pop().unwrap().0.leak()));
                 }
             }

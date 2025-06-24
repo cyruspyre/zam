@@ -2,7 +2,7 @@ pub mod generic;
 pub mod kind;
 mod misc;
 
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter, Result};
 
 use kind::TypeKind;
 use misc::join;
@@ -14,7 +14,7 @@ use crate::{
 
 use super::{expression::group::GroupValue, fields::FieldValue, Parser};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct Type {
     /// Span range covers the entire type declaration.
     ///
@@ -25,38 +25,6 @@ pub struct Type {
     pub ptr: usize,
     pub raw: bool,
     pub null: usize,
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}{}{}",
-            if self.raw { "*" } else { "&" }.repeat(self.ptr),
-            self.kind,
-            if self.sub.is_empty() {
-                "".into()
-            } else {
-                format!("<{}>", join(&self.sub))
-            },
-            "?".repeat(self.null)
-        )
-    }
-}
-
-impl FieldValue for Type {
-    fn field_value(src: &mut Parser) -> Option<Self> {
-        src.typ()
-    }
-}
-
-impl GroupValue for Type {
-    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
-        match src.skip_whitespace() {
-            ')' => None,
-            _ => Some(src.typ()),
-        }
-    }
 }
 
 impl Parser {
@@ -162,5 +130,53 @@ impl Parser {
             raw,
             null,
         })
+    }
+}
+
+impl FieldValue for Type {
+    fn field_value(src: &mut Parser) -> Option<Self> {
+        src.typ()
+    }
+}
+
+impl GroupValue for Type {
+    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
+        match src.skip_whitespace() {
+            ')' => None,
+            _ => Some(src.typ()),
+        }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(
+            f,
+            "{}{}{}{}",
+            if self.raw { "*" } else { "&" }.repeat(self.ptr),
+            self.kind,
+            if self.sub.is_empty() {
+                "".into()
+            } else {
+                format!("<{}>", join(&self.sub))
+            },
+            "?".repeat(self.null)
+        )
+    }
+}
+
+impl Debug for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if f.alternate() {
+            return Display::fmt(self, f);
+        }
+
+        f.debug_struct("Type")
+            .field("kind", &self.kind)
+            .field("sub", &self.sub)
+            .field("ptr", &self.ptr)
+            .field("raw", &self.raw)
+            .field("null", &self.null)
+            .finish()
     }
 }

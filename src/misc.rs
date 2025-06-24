@@ -1,9 +1,11 @@
 use std::{
     borrow::Borrow,
-    fmt::Debug,
+    fmt::{Debug, Formatter},
     ops::{Deref, DerefMut},
     ptr::{null, null_mut},
 };
+
+use colored::Colorize;
 
 pub type Result<T> = std::result::Result<T, T>;
 
@@ -61,7 +63,7 @@ impl<F: FnMut()> Drop for CustomDrop<F> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Ref<T: ?Sized>(pub *const T);
 
 impl<T> Borrow<T> for Ref<T> {
@@ -70,9 +72,9 @@ impl<T> Borrow<T> for Ref<T> {
     }
 }
 
-impl<T> Default for Ref<T> {
-    fn default() -> Self {
-        Self(null())
+impl<T> Borrow<T> for &Ref<T> {
+    fn borrow(&self) -> &T {
+        self
     }
 }
 
@@ -85,8 +87,14 @@ impl<T> Deref for Ref<T> {
 }
 
 impl<T: Debug + ?Sized> Debug for Ref<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         unsafe { (*self.0).fmt(f) }
+    }
+}
+
+impl<T> Default for Ref<T> {
+    fn default() -> Self {
+        Self(null())
     }
 }
 
@@ -98,7 +106,7 @@ impl<T> Clone for Ref<T> {
 
 impl<T> Copy for Ref<T> {}
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct RefMut<T>(pub *mut T);
 
 impl<T> RefMut<T> {
@@ -131,5 +139,17 @@ impl<T> DerefMut for RefMut<T> {
 impl<T> Clone for RefMut<T> {
     fn clone(&self) -> Self {
         Self(self.0)
+    }
+}
+
+impl<T> Debug for RefMut<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            return match self.is_null() {
+                true => f.write_str(&"null".black().italic().to_string()),
+                _ => self.fmt(f),
+            };
+        }
+        f.debug_tuple("RefMut").field(&self.0).finish()
     }
 }

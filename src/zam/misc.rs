@@ -6,13 +6,20 @@ use std::{
 pub fn display<T: Borrow<String>>(val: &Vec<T>, f: &mut Formatter) -> Result {
     let mut buf = String::new();
 
-    for i in 0..val.len().checked_sub(1).unwrap_or_default() {
-        buf += val[i].borrow();
-        buf += "::";
-    }
+    for (i, v) in val.iter().enumerate() {
+        buf += v.borrow();
 
-    if let Some(v) = val.last() {
-        buf += v.borrow()
+        let Some(v) = val.get(i + 1) else { break };
+        let v: &str = v.borrow();
+
+        if v == "" {
+            buf += " as ";
+            buf += v;
+            buf += val[i + 2].borrow();
+            break;
+        }
+
+        buf += "::"
     }
 
     f.write_str(&buf)

@@ -2,17 +2,19 @@ mod function;
 mod implement;
 mod r#struct;
 mod r#trait;
+mod r#use;
 
 use std::{
     fmt::{Display, Formatter, Result},
     ops::Deref,
 };
 
+use hashbrown::HashMap;
 use indexmap::IndexMap;
 
 use crate::{
     log::{Log, Point},
-    misc::{Bypass, Ref},
+    misc::{Bypass, Ref, RefMut},
     parser::span::ToSpan,
     zam::path::ZamPath,
 };
@@ -22,17 +24,19 @@ use super::{
     Entity, Parser,
 };
 
-#[rustfmt::skip]
-pub type Impls = IndexMap<Ref<String>, IndexMap<Ref<ZamPath>, Vec<([Identifier; 2], Generic, Block)>>>;
-type ImplsLocal = IndexMap<Ref<String>, Vec<([Identifier; 2], Generic, Block)>>;
+type Declaration = IndexMap<Identifier, Entity>;
+type Impl = Vec<([Identifier; 2], Generic, Declaration)>;
+pub type Impls = HashMap<Ref<String>, IndexMap<Ref<ZamPath>, Impl>>;
+type LocalImpls = HashMap<Ref<String>, Impl>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
     pub public: Vec<usize>,
-    pub dec: IndexMap<Identifier, Entity>,
+    pub ext: IndexMap<Identifier, RefMut<Entity>>,
+    pub dec: Declaration,
     pub stm: Vec<Statement>,
     pub global: bool,
-    pub impls: ImplsLocal,
+    pub impls: LocalImpls,
 }
 
 #[derive(PartialEq)]
@@ -73,7 +77,8 @@ impl Parser {
         let mut dup = IndexMap::new();
         let mut flag = true;
         let mut dec: IndexMap<Identifier, _> = IndexMap::new();
-        let mut impls = IndexMap::new();
+        let mut ext = IndexMap::new();
+        let mut impls = HashMap::new();
         let mut public = Vec::new();
         let stm_ref = stm.bypass();
         let not_local = typ != BlockType::Local;
@@ -93,12 +98,12 @@ impl Parser {
 
             let tmp = tmp.as_str();
 
-            if tmp.is_empty() {
-                break;
-            }
-
-            if tmp == "impl" {
-                self.implement(&mut impls, global)?;
+            if match tmp {
+                "" => break,
+                "impl" => self.implement(&mut impls, global)?,
+                "use" => self.r#use(&mut ext)?,
+                _ => false,
+            } {
                 continue;
             }
 
@@ -165,8 +170,6 @@ impl Parser {
                         self._next();
                     }
 
-                    // panic!("{de:?} {:?} {:?}", self.idx,  self.log.data[self.idx]);
-
                     if exp.data.is_empty() {
                         continue;
                     }
@@ -179,6 +182,8 @@ impl Parser {
             });
         }
 
+        ext.sort_unstable_keys();
+
         for (k, mut v) in dup {
             let msg = format!("identifier `{k}` declared multiple times");
 
@@ -186,6 +191,7 @@ impl Parser {
         }
 
         Some(Block {
+            ext,
             dec,
             stm,
             impls,

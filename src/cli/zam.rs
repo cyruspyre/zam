@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use indexmap::IndexMap;
+use hashbrown::HashMap;
 use threadpool::ThreadPool;
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     err,
     misc::{Bypass, Ref},
     project::Project,
-    zam::{block::Impls, path::ZamPath, Zam},
+    zam::{path::ZamPath, Zam},
 };
 
 pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
@@ -23,7 +23,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
     path.push("src");
 
     let zam_id = ZamPath(vec![Ref(&cfg.pkg.name)]);
-    let mut impls: Impls = IndexMap::new();
+    let mut impls = HashMap::new();
     let mut parse =
         |path: PathBuf, required: bool, id: ZamPath| Zam::parse(path, required, &mut impls, id);
     let mut root = parse(path.join("main.z"), true, zam_id.clone());
@@ -55,7 +55,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
             if typ.is_dir() {
                 zam_id.push(Ref(&key));
                 let zam = parse(path.join("mod.z"), false, zam_id.clone());
-                let mut entry = mods.bypass().entry(key).insert_entry(zam);
+                let mut entry = mods.bypass().entry(key).insert(zam);
                 let parent = mods.bypass();
 
                 stack.push((
@@ -63,7 +63,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
                     zam_id.clone(),
                     entry.get_mut().mods.bypass(),
                     Some(Box::new(move || {
-                        parent.swap_remove(entry.key());
+                        parent.remove(entry.key());
                     })),
                 ));
                 zam_id.pop();

@@ -3,6 +3,7 @@ use std::{collections::VecDeque, fmt::Debug, fs::read_to_string, path::PathBuf};
 use block::{Block, BlockType};
 use expression::Expression;
 use fields::Fields;
+use hashbrown::HashMap;
 use identifier::Identifier;
 use indexmap::IndexMap;
 use typ::{generic::Generic, Type};
@@ -16,7 +17,6 @@ use crate::{
 
 pub mod block;
 pub mod expression;
-mod external;
 pub mod fields;
 pub mod identifier;
 mod misc;
@@ -30,13 +30,13 @@ pub struct Zam {
     pub log: Logger,
     pub block: Block,
     pub parent: RefMut<Zam>,
-    pub mods: IndexMap<String, Zam>,
+    pub mods: HashMap<String, Zam>,
     pub lookup: Lookup,
 }
 
 #[derive(Default)]
 pub struct Lookup {
-    pub vars: IndexMap<Ref<Identifier>, RefMut<Entity>>,
+    pub vars: HashMap<Ref<Identifier>, RefMut<Entity>>,
     pub decs: Vec<RefMut<IndexMap<Identifier, Entity>>>,
 }
 

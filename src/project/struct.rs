@@ -37,7 +37,7 @@ impl Project {
             return;
         }
 
-        let Some(map) = self.bypass().impls.get_mut(&id.leaf_name().data) else {
+        let Some(map) = self.bypass().impls.get(&id.leaf_name().data) else {
             return;
         };
 
@@ -54,12 +54,13 @@ impl Project {
             };
 
             for id in iter {
-                zam = &mut zam.mods[&**id];
+                zam = zam.mods.get_mut(&**id).unwrap();
             }
 
             let log = &mut zam.log;
 
             while let Some(([one, two], gen, block)) = val.get(idx) {
+                let res = self.lookup(one);
                 if !zam.block.dec.contains_key(one) {
                     log(
                         &mut [(one.rng(), Point::Error, "")],
@@ -68,7 +69,7 @@ impl Project {
                         format!("qualify it as `{}` or import it", id.relative(zam_id)),
                     );
                 }
-                println!("{one} {:?}", self.lookup(one));
+                println!("{one} {:#?}", res);
                 if !two.is_empty() {
                     todo!("implement traits for types")
                 }

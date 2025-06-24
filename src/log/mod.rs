@@ -72,11 +72,33 @@ impl Logger {
 
         pnt.sort_unstable_by_key(|v| v.0[0]);
 
-        let mut iter = pnt.bypass().into_iter().peekable();
-        let mut val = None;
+        let tmp = match self.ctx {
+            Some(v) => v.0[0],
+            _ => 0,
+        };
+        let tmp = tmp.max(pnt.last().unwrap().0[0]);
+
+        loop {
+            let last = match self.line.last() {
+                Some(n) => n + 1,
+                _ => 0,
+            };
+
+            if last > tmp {
+                break;
+            }
+
+            let tmp = match self.data[last..].iter().position(|c| *c == '\n') {
+                Some(n) => last + n,
+                _ => self.data.len(),
+            };
+
+            self.line.push(tmp);
+        }
+
         let pad = self
             .line
-            .binary_search(&pnt.last().unwrap().0[0])
+            .binary_search(&tmp)
             .either()
             .add(1)
             .ilog10()
@@ -94,6 +116,8 @@ impl Logger {
             tmp + 1,
             first - self.line.get(tmp.wrapping_sub(1)).unwrap_or(&0),
         );
+        let mut iter = pnt.bypass().into_iter().peekable();
+        let mut val = None;
         let mut tmp = true;
 
         io.write(buf.as_bytes()).unwrap();
@@ -121,21 +145,6 @@ impl Logger {
 
                 continue;
             };
-            let tmp = rng[0].max(rng[1]);
-
-            if match self.line.last() {
-                Some(n) => *n,
-                _ => 0,
-            } < tmp
-            {
-                let tmp = match self.data[tmp..].iter().position(|c| *c == '\n') {
-                    Some(n) => tmp + n,
-                    _ => self.data.len(),
-                };
-
-                self.line.push(tmp);
-            }
-
             let line_idx = self.line.binary_search(&rng[0]).either();
             let line = line_idx.add(1).to_string().bright_black();
             let start = match self.line.get(line_idx.wrapping_sub(1)) {
@@ -152,7 +161,7 @@ impl Logger {
 
             io.write(buf.as_bytes()).unwrap();
 
-            let mut labels = vec![(1, rng, pnt, label)];
+            let mut labels = vec![(rng, pnt, label)];
             let mut flag = false;
 
             while let Some((rng, pnt, label)) = iter.bypass().peek_mut() {
@@ -170,13 +179,14 @@ impl Logger {
                 };
 
                 iter.next();
-                labels.push((labels.len() + 1, rng, *pnt, label));
+                labels.push((rng, *pnt, label));
             }
 
-            while labels.len() != 0 {
-                let mut tmp = start;
+            loop {
+                let mut start = start;
+                let mut idx = 0;
 
-                for (i, rng, pnt, label) in labels.bypass() {
+                while let Some((rng, pnt, label)) = labels.bypass().get_mut(idx) {
                     let color = match pnt {
                         Point::Info => Color::BrightBlue,
                         Point::Error => Color::BrightRed,
@@ -190,33 +200,35 @@ impl Logger {
                     };
                     let buf = format!(
                         "{}{}",
-                        " ".repeat(rng[0].min(rng[1]) - tmp),
-                        pnt.repeat(rng[1].saturating_sub(rng[0]) + 1).color(color)
+                        " ".repeat(rng[0] - start),
+                        pnt.repeat(rng[1] - rng[0] + 1).color(color)
                     );
-
-                    tmp = rng[1] + *i;
-
-                    if rng[1] > rng[0] {
-                        rng.swap(0, 1);
-                    }
 
                     io.write(buf.as_bytes()).unwrap();
 
-                    if *i == labels.len() {
+                    start = rng[1] + 1;
+                    rng[1] = rng[0];
+                    idx += 1;
+
+                    if idx == labels.len() {
                         let buf = format!(" {}", label.color(color));
 
                         io.write(buf.as_bytes()).unwrap();
+                        labels.pop();
                     }
                 }
 
-                flag = true;
-                labels.pop();
-
-                if labels.len() != 0 {
-                    let buf = format!("\n{}  ", " ".repeat(pad + line.len()));
-
-                    io.write(buf.as_bytes()).unwrap();
+                if !flag {
+                    flag = true;
+                    labels.retain(|v| !v.2.is_empty());
                 }
+
+                if labels.is_empty() {
+                    break;
+                }
+
+                io.write(format!("\n{}  ", " ".repeat(pad + line.len())).as_bytes())
+                    .unwrap();
             }
 
             io.write(b"\n").unwrap();

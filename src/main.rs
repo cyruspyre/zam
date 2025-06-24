@@ -5,7 +5,9 @@ mod cfg;
 mod cli;
 mod log;
 mod misc;
+mod naive_map;
 mod parser;
+mod perf;
 mod project;
 mod zam;
 

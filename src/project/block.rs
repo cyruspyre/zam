@@ -24,13 +24,19 @@ impl Project {
             }
         }
 
-        let len = vars.len();
+        let mut tmp = Vec::new();
 
         for v in &mut block.stm {
             match v {
                 Statement::Variable { id, data } => {
                     self.variable(data);
-                    vars.insert(Ref(id.bypass()), RefMut(data.bypass()));
+                    let entry = vars
+                        .bypass()
+                        .entry(Ref(id.bypass()))
+                        .insert(RefMut(data.bypass()))
+                        .bypass();
+                    tmp.push(entry.key());
+                    // vars.insert(Ref(id.bypass()), RefMut(data.bypass()));
                 }
                 Statement::Conditional { cond, default } => {
                     for (exp, block) in cond {
@@ -47,6 +53,9 @@ impl Project {
         }
 
         decs.pop();
-        vars.truncate(len);
+        // vars.truncate(len);
+        for k in tmp {
+            vars.remove(k);
+        }
     }
 }

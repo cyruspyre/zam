@@ -11,7 +11,7 @@ use crate::{
         expression::{misc::Range, term::Term},
         identifier::Identifier,
         typ::kind::TypeKind,
-        Entity,
+        Entity, Zam,
     },
 };
 
@@ -20,20 +20,19 @@ impl Project {
         let cur = self.cur();
         let mut zam = &mut *cur.zam;
 
-        for key in id.iter() {
-            let Some(next) = zam.mods.get_mut(&key.data) else {
-                break;
-            };
-
-            zam = next
-        }
+        // for key in id.iter() {
+        //     let Some(next) = zam.mods.get_mut(&key.data) else {
+        //         break;
+        //     };
+        //     zam = next
+        // }
 
         cur.global = zam.block.global;
 
         let lookup = zam.lookup.bypass();
         let id = id.leaf_name();
 
-        if let Some((_, k, v)) = lookup.vars.bypass().get_full_mut(id) {
+        if let Some((k, v)) = lookup.vars.bypass().get_key_value_mut(id) {
             return Some(Ok((k, v.deref_mut().into())));
         }
 
