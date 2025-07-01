@@ -3,7 +3,7 @@ mod zam;
 
 use std::{num::NonZero, path::PathBuf, thread::available_parallelism};
 
-use clap::{arg, builder::PathBufValueParser, value_parser, Command};
+use clap::{Command, arg, builder::PathBufValueParser, value_parser};
 use init::init;
 use threadpool::ThreadPool;
 use zam::zam;

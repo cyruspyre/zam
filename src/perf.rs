@@ -1,5 +1,5 @@
 use std::{
-    io::{stderr, BufWriter, Write},
+    io::{BufWriter, Write, stderr},
     time::{Duration, Instant},
 };
 
@@ -55,11 +55,11 @@ impl Perf {
         for (i, (id, cycles)) in entries.iter().enumerate() {
             io.write(
                 format!(
-                    "{}. {id} | Best {:.2?} | Worst {:.2?} | Average {:.2?}\n",
+                    "{}. {id} | Average {:.2?} | Best {:.2?} | Worst {:.2?}\n",
                     i + 1,
+                    cycles[2],
                     cycles[0],
                     cycles[1],
-                    cycles[2]
                 )
                 .as_bytes(),
             )

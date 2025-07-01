@@ -1,17 +1,22 @@
 use indexmap::IndexMap;
 
 use crate::{
+    log::Point,
     misc::RefMut,
-    parser::{span::ToSpan, Parser},
-    zam::{identifier::Identifier, Entity},
+    parser::{Parser, span::ToSpan},
+    zam::{Entity, block::insert, identifier::Identifier},
 };
 
 impl Parser {
-    pub fn r#use(&mut self, ext: &mut IndexMap<Identifier, RefMut<Entity>>) -> Option<bool> {
+    pub fn r#use(
+        &mut self,
+        ext: &mut IndexMap<Identifier, RefMut<Entity>>,
+        dup: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
+    ) -> Option<bool> {
         let id = self.identifier(true, true)?;
 
         if self.expect(&["::", ";"])? == ";" {
-            ext.insert(id, RefMut::default());
+            insert(ext, dup, id, RefMut::default());
             return Some(true);
         }
 
@@ -36,14 +41,19 @@ impl Parser {
                 continue;
             }
 
-            let mut id = self.identifier(true, true)?.qualify(base);
+            let mut id = self.identifier(true, true)?;
 
-            if id.leaf_name().data == "self" {
+            if id[0].data == "self" {
+                if id.is_qualified() {
+                    self.log.err("`self` cannot be qualified in `use`")?
+                }
                 id.pop();
             }
 
+            let mut id = id.qualify(base);
+
             if self.might('}') {
-                ext.insert(id, RefMut::default());
+                insert(ext, dup, id, RefMut::default());
                 continue;
             }
 
@@ -59,7 +69,7 @@ impl Parser {
             }
 
             if tmp != "::" {
-                ext.insert(id, RefMut::default());
+                insert(ext, dup, id, RefMut::default())
             }
         }
 

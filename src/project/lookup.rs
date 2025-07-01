@@ -4,56 +4,84 @@ use strsim::jaro;
 
 use crate::{
     log::{Log, Point},
-    misc::{Bypass, Either, Ref, RefMut, Result},
+    misc::{Bypass, Ref, RefMut},
     parser::span::Span,
     project::Project,
     zam::{
+        Entity,
         expression::{misc::Range, term::Term},
         identifier::Identifier,
         typ::kind::TypeKind,
-        Entity, Zam,
     },
 };
 
 impl Project {
-    pub fn lookup(&mut self, id: &Identifier) -> Option<Result<(&Identifier, &mut Entity)>> {
-        let cur = self.cur();
-        let mut zam = &mut *cur.zam;
-
-        // for key in id.iter() {
-        //     let Some(next) = zam.mods.get_mut(&key.data) else {
-        //         break;
-        //     };
-        //     zam = next
-        // }
-
-        cur.global = zam.block.global;
-
+    pub fn lookup(
+        &mut self,
+        id: &Identifier,
+        required: bool,
+    ) -> Option<(&Identifier, &mut Entity)> {
+        let mut zam = self.cur().deref_mut().bypass();
         let lookup = zam.lookup.bypass();
-        let id = id.leaf_name();
+        let qualified = id.is_qualified();
 
-        if let Some((k, v)) = lookup.vars.bypass().get_key_value_mut(id) {
-            return Some(Ok((k, v.deref_mut().into())));
+        if qualified {
+            let mut tmp = zam.bypass();
+            let mut idx = 0;
+
+            while idx != id.len() {
+                let leaf = &id[idx];
+
+                idx += 1;
+                tmp = match leaf.as_str() {
+                    "self" => tmp,
+                    "super" if tmp.parent.is_null() => zam
+                        .log
+                        .err_rng(id.rng(), format!("`{}` doesn't have parent", tmp.id))?,
+                    "super" => tmp.parent.deref_mut(),
+                    v if let Some(v) = zam.mods.get_mut(v) => v.bypass(),
+                    _ if idx != id.len() => zam
+                        .log
+                        .err_rng(leaf.rng, format!("`{}` doesn't have `{leaf}`", zam.id))?,
+                    _ => break,
+                };
+            }
+
+            zam = tmp
         }
 
-        let mut one = lookup.vars.iter_mut().map(|(k, v)| (&*k, v.deref_mut()));
+        lookup.stamp = (Ref(&zam.id), lookup.decs.len());
+
+        let leaf = id.leaf_name();
+
+        if let Some((_, k, v)) = lookup.vars.bypass().get_full_mut(leaf) {
+            return Some((k, v.deref_mut()));
+        }
+
         let mut two = VecDeque::new();
-        let mut iter = lookup.decs.iter_mut();
+        let mut iter = lookup.decs.bypass().iter_mut();
 
         loop {
-            let dec = match iter.next() {
-                Some(v) => &mut **v,
-                _ if two.is_empty() => zam.block.dec.bypass(),
+            let (idx, dec) = match iter.next() {
+                Some((idx, map)) => (**idx, map.deref_mut()),
+                _ if lookup.decs.is_empty() => (0, zam.block.dec.bypass()),
                 _ => break,
             };
 
-            if let Some((_, k, v)) = dec.bypass().get_full_mut(id) {
-                return Some(Ok((k, v.into())));
+            if let Some((_, k, v)) = dec.bypass().get_full_mut(leaf) {
+                return Some((k, v));
             }
 
-            two.push_back(dec.iter_mut().map(|(k, v)| (k, v)));
+            if required {
+                two.push_back(dec[idx..].iter_mut().map(|(k, v)| (k, v)))
+            }
         }
 
+        if !required {
+            return None;
+        }
+
+        let mut one = lookup.vars.iter_mut().map(|(k, v)| (&*k, v.deref_mut()));
         let mut res: (f64, Option<(&Identifier, &mut Entity)>) = (0.0, None);
         let mut tmp: Option<(&Identifier, _)> = None;
 
@@ -69,7 +97,7 @@ impl Project {
             }
 
             if let Some((k, v)) = tmp.take() {
-                let sim = jaro(id, k.leaf_name());
+                let sim = jaro(leaf, k.leaf_name());
 
                 if sim > res.0 {
                     res = (sim, Some((k, v)))
@@ -83,38 +111,44 @@ impl Project {
             }
         }
 
-        match res.0 {
-            0.8..=1.0 => Some(Err(res.1?)),
-            _ => None,
+        for v in zam.mods.values_mut() {
+            if let Some((i, id_cur, _)) = v.block.dec.get_full(leaf) {
+                let suggestion = id_cur.qualify(&v.id);
+                let [msg, note] = if v.block.public.contains(&i) {
+                    [
+                        format!("did you mean `{suggestion}`?"),
+                        format!("qualify it as `{suggestion}` or import it"),
+                    ]
+                } else {
+                    [
+                        String::new(),
+                        format!("`{suggestion}` exists but is private"),
+                    ]
+                };
+
+                zam.log.call(
+                    &mut [(id.rng(), Point::Error, "")],
+                    Log::Error,
+                    format!("cannot find `{leaf}`. {msg}"),
+                    note,
+                )
+            }
         }
+
+        if (0.8..=1.0).contains(&res.0) {
+            todo!()
+        }
+
+        None
     }
 
     pub fn as_typ<'a, F>(&mut self, id_exp: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
-        let log = self.cur().zam.log.bypass();
-        let res = self.bypass().lookup(id_exp);
-        let Some(Ok((id_entity, val))) = res else {
-            let mut pnt = Vec::new();
-
-            if let Some(Err((k, v))) = res {
-                pnt.push((
-                    k.rng(),
-                    Point::Info,
-                    format!("similar {} named `{k}` exists", v.name()),
-                ));
-            }
-
-            pnt.push((id_exp.rng(), Point::Error, String::new()));
-            log(
-                &mut pnt,
-                Log::Error,
-                format!("cannot find identifier `{id_exp}`"),
-                "",
-            );
-            return None;
-        };
+        let log = self.cur().log.bypass();
+        let res = self.bypass().lookup(id_exp, true);
+        let (id_entity, val) = res?;
 
         let typ = match val.bypass() {
             Entity::Variable { exp, done, .. } => 'a: {
@@ -127,7 +161,7 @@ impl Project {
             }
             Entity::Struct {
                 done,
-                gen,
+                generic,
                 fields,
                 impls,
                 traits,
@@ -203,94 +237,58 @@ impl Project {
         Some(typ)
     }
 
-    pub fn typ(&mut self, kind: &mut Span<TypeKind>) {
-        let log = self.cur().zam.log.bypass();
-
-        log.rng = kind.rng;
-
-        let kind = &mut kind.data;
-        let TypeKind::ID(id) = kind.bypass() else {
-            if let TypeKind::Tuple(v) = kind {
-                for typ in v {
-                    self.typ(&mut typ.kind)
-                }
-            }
-
-            return;
-        };
-
-        let res = self.lookup(id);
-        let mut label = None;
-
-        if matches!(res, None | Some(Err(_)))
-            && {
-                label = kind.try_as_number();
-                label.is_none()
-            }
-            && !matches!(kind, TypeKind::ID(_))
-        {
-            return;
-        }
-
-        let mut pnt = Vec::new();
-        let Some(res) = res else {
-            // ehh try to refactor it
-            log.bypass()(
-                &mut [(log.rng, Point::Error, label.unwrap_or_default())],
-                Log::Error,
-                format!("cannot find type `{id}`"),
-                "",
-            );
-            return;
-        };
-        let ok = res.is_ok();
-        let (k, v) = res.either();
-        let name = match v {
-            Entity::Variable { .. } => "variable",
-            Entity::Function { .. } => "function",
-            Entity::Struct { .. } if ok => {
-                return *kind = TypeKind::Entity {
-                    id: Ref(k),
-                    data: RefMut(v),
+    pub fn qualify_type(&mut self, kind: &mut Span<TypeKind>) {
+        let id = match kind.data.bypass() {
+            TypeKind::ID(id) => id,
+            TypeKind::Tuple(fields) => {
+                return for v in fields {
+                    self.qualify_type(&mut v.kind)
                 };
             }
-            _ => todo!(),
+            _ => return,
         };
 
-        pnt.push((k.rng(), Point::Info, format!("{name} defined here")));
+        let mut label = None;
+        let msg = if let Some((id, val)) = self.lookup(&id, false) {
+            let entity = match val {
+                Entity::Struct { .. } => {
+                    return kind.data = TypeKind::Entity {
+                        id: Ref(id),
+                        data: RefMut(val),
+                    };
+                }
+                _ => val.name(),
+            };
 
-        let recursive = id == k;
-        let msg = if recursive {
-            "recursive type detected without indirections".into()
-        } else if ok {
-            format!("expected type, found {name} `{k}`")
+            format!("expected type found `{entity}`")
         } else {
+            label = kind.try_as_number();
+
+            if label.is_none() && !matches!(kind.data, TypeKind::ID(_)) {
+                return;
+            }
+
             format!("cannot find type `{id}`")
         };
-        let label = if let Some(v) = label {
-            v
-        } else if recursive {
-            "creates an infinite-sized type".into()
-        } else {
-            let b = [k.leaf_name(), "isize", "usize"]
-                .map(|v| (jaro(v, id.leaf_name()), v))
-                .into_iter()
-                .max_by(|a, b| jaro(a.1, id.leaf_name()).total_cmp(&jaro(b.1, id.leaf_name())))
-                .unwrap();
 
-            if b.0 >= 0.8 && !name.is_empty() {
-                format!("did you mean `{}`?", b.1)
+        if label.is_none() && !id.is_qualified() {
+            let id = &id[0].data;
+            let [a, b] = ["isize", "usize"].map(|v| jaro(id, v));
+            let res = if a >= 0.8 {
+                "usize"
+            } else if b >= 0.8 {
+                "usize"
             } else {
-                "not a type".into()
+                ""
+            };
+
+            if res != "" {
+                label = Some(format!("did you mean `{res}`?"))
             }
-        };
-        let note = match recursive {
-            true => "make it nullable or wrap it in a type that provides indirections",
-            _ => "",
-        };
+        }
 
-        pnt.push((log.rng, Point::Error, label));
+        let pnt = &mut [(id.rng(), Point::Error, label.unwrap_or_default())];
 
-        return log(&mut pnt, Log::Error, msg, note);
+        self.cur().log.call(pnt, Log::Error, msg, "");
     }
 }

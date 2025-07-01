@@ -9,8 +9,8 @@ use std::{
 
 use semver::VersionReq;
 use serde::{
-    de::{Error, IntoDeserializer, MapAccess, Visitor},
     Deserialize, Deserializer,
+    de::{Error, IntoDeserializer, MapAccess, Visitor},
 };
 
 use crate::{err, log::Logger, naive_map::NaiveMap};

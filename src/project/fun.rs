@@ -10,10 +10,10 @@ impl Project {
         };
 
         for v in arg.values_mut() {
-            self.typ(&mut v.kind);
+            self.qualify_type(&mut v.kind);
         }
 
-        self.typ(&mut ret.kind);
+        self.qualify_type(&mut ret.kind);
 
         if let Some(v) = &mut *block {
             self.block(v);

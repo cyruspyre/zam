@@ -3,15 +3,15 @@ use std::fmt::{Debug, Display};
 use crate::{
     parser::span::Span,
     zam::{
+        Entity,
         identifier::Identifier,
         statement::Statement,
-        typ::{kind::TypeKind, Type},
-        Entity,
+        typ::{Type, kind::TypeKind},
     },
 };
 
 use super::{
-    super::{fields::Fields, Block},
+    super::{Block, fields::Fields},
     Expression, Parser,
 };
 

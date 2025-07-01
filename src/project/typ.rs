@@ -5,8 +5,8 @@ use crate::{
     misc::Bypass,
     project::Project,
     zam::{
-        expression::{misc::Range, term::Term, Expression},
-        typ::{kind::TypeKind, Type},
+        expression::{Expression, misc::Range, term::Term},
+        typ::{Type, kind::TypeKind},
     },
 };
 
@@ -20,7 +20,7 @@ impl Project {
             self.location(exp.data.rng())
         );
 
-        let log = self.cur().zam.log.bypass();
+        let log = self.cur().log.bypass();
         let mut typ: Option<Cow<TypeKind>> = None;
         let mut iter = exp.bypass().data.iter_mut().enumerate();
 
@@ -35,7 +35,7 @@ impl Project {
                     null,
                     ..
                 }) => {
-                    self.typ(kind);
+                    self.qualify_type(kind);
 
                     if !matches!(
                         kind.data,

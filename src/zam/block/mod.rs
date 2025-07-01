@@ -4,24 +4,21 @@ mod r#struct;
 mod r#trait;
 mod r#use;
 
-use std::{
-    fmt::{Display, Formatter, Result},
-    ops::Deref,
-};
+use std::fmt::{Display, Formatter, Result};
 
 use hashbrown::HashMap;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, map::Entry};
 
 use crate::{
     log::{Log, Point},
     misc::{Bypass, Ref, RefMut},
-    parser::span::ToSpan,
+    parser::span::Span,
     zam::path::ZamPath,
 };
 
 use super::{
-    expression::misc::Range, identifier::Identifier, statement::Statement, typ::generic::Generic,
-    Entity, Parser,
+    Entity, Parser, expression::misc::Range, identifier::Identifier, statement::Statement,
+    typ::generic::Generic,
 };
 
 type Declaration = IndexMap<Identifier, Entity>;
@@ -58,6 +55,33 @@ impl Display for BlockType {
     }
 }
 
+fn insert<V>(
+    map: &mut IndexMap<Identifier, V>,
+    dup: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
+    id: Identifier,
+    val: V,
+) {
+    let rng = id.rng();
+    let entry = map.entry(id);
+    let Entry::Occupied(entry) = entry else {
+        entry.insert_entry(val);
+        return;
+    };
+    let key = entry.key().leaf_name();
+
+    insert_dup(dup, key, rng)
+}
+
+fn insert_dup(
+    map: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
+    dup: &Span<String>,
+    og_rng: [usize; 2],
+) {
+    map.entry(unsafe { &*(&dup.data as *const _) })
+        .or_insert_with(|| vec![(og_rng, Point::Error, "")])
+        .push((dup.rng, Point::Error, ""))
+}
+
 impl Parser {
     pub fn block(&mut self, typ: BlockType) -> Option<Block> {
         self._block(typ, Vec::new())
@@ -75,7 +99,7 @@ impl Parser {
         };
 
         let mut dup = IndexMap::new();
-        let mut flag = true;
+        let mut flag = false;
         let mut dec: IndexMap<Identifier, _> = IndexMap::new();
         let mut ext = IndexMap::new();
         let mut impls = HashMap::new();
@@ -101,14 +125,14 @@ impl Parser {
             if match tmp {
                 "" => break,
                 "impl" => self.implement(&mut impls, global)?,
-                "use" => self.r#use(&mut ext)?,
+                "use" => self.r#use(&mut ext, &mut dup)?,
                 _ => false,
             } {
                 continue;
             }
 
             'two: {
-                let (mut k, v) = match tmp {
+                let (k, v) = match tmp {
                     "fn" => self.fun(typ != BlockType::Trait)?,
                     "pub" if not_local => {
                         flag = true;
@@ -121,8 +145,6 @@ impl Parser {
                         Statement::Variable { id, data } => (id, data),
                         _ => unreachable!(),
                     },
-                    // "use" => ,
-                    // "extern" => self.ext(&mut ext),
                     _ => break 'two,
                 };
 
@@ -131,24 +153,7 @@ impl Parser {
                     public.push(dec.len());
                 }
 
-                if let Some((prev, _)) = dec.get_key_value(&k) {
-                    let rng = k.rng();
-
-                    dup.entry(k)
-                        .or_insert(vec![(prev.rng(), Point::Error, "first declared here")])
-                        .push((rng, Point::Error, ""))
-                } else {
-                    let rng = k.rng();
-                    let mut tmp = Vec::with_capacity(k.len() + 1);
-
-                    for v in self.id.iter() {
-                        tmp.push(v.deref().clone().span(rng));
-                    }
-
-                    tmp.push(k.pop().unwrap());
-                    dec.insert(Identifier(tmp), v);
-                }
-
+                insert(&mut dec, &mut dup, k, v);
                 continue 'one;
             }
 
@@ -182,13 +187,19 @@ impl Parser {
             });
         }
 
-        ext.sort_unstable_keys();
+        for v in ext.keys() {
+            if let Some(og) = dec.get_key_value(v) {
+                insert_dup(&mut dup, og.0.leaf_name(), v.rng());
+            }
+        }
 
         for (k, mut v) in dup {
-            let msg = format!("identifier `{k}` declared multiple times");
+            let msg = format!("identifier `{k}` defined multiple times");
 
             log(&mut v, Log::Error, &msg, "");
         }
+
+        ext.sort_unstable_keys();
 
         Some(Block {
             ext,

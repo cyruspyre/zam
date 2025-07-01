@@ -2,7 +2,7 @@ mod conditional;
 mod r#loop;
 mod variable;
 
-use super::{expression::Expression, identifier::Identifier, Block, Entity};
+use super::{Block, Entity, expression::Expression, identifier::Identifier};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {

@@ -6,7 +6,7 @@ use fields::Fields;
 use hashbrown::HashMap;
 use identifier::Identifier;
 use indexmap::IndexMap;
-use typ::{generic::Generic, Type};
+use typ::{Type, generic::Generic};
 
 use crate::{
     log::{Log, Logger},
@@ -36,28 +36,29 @@ pub struct Zam {
 
 #[derive(Default)]
 pub struct Lookup {
-    pub vars: HashMap<Ref<Identifier>, RefMut<Entity>>,
-    pub decs: Vec<RefMut<IndexMap<Identifier, Entity>>>,
+    pub vars: IndexMap<Ref<Identifier>, RefMut<Entity>>,
+    pub decs: Vec<(Ref<usize>, RefMut<IndexMap<Identifier, Entity>>)>,
+    pub stamp: (Ref<ZamPath>, usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Entity {
     Function {
         arg: Fields<Type>,
-        gen: Generic,
+        generic: Generic,
         ret: Type,
         done: bool,
         block: Option<Block>,
     },
     Struct {
-        gen: Generic,
+        generic: Generic,
         done: bool,
         fields: Fields<Type>,
         impls: IndexMap<Identifier, Entity>,
         traits: IndexMap<Identifier, [usize; 2]>,
     },
     Trait {
-        gen: Generic,
+        generic: Generic,
         /// Will always contain `Entity::Function` or `Entity::Type`
         item: IndexMap<Identifier, Entity>,
     },

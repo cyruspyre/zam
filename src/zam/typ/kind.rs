@@ -2,10 +2,10 @@ use std::{fmt::Display, u32};
 
 use crate::{
     misc::{Ref, RefMut},
-    zam::{identifier::Identifier, Entity},
+    zam::{Entity, identifier::Identifier},
 };
 
-use super::{misc::join, Type};
+use super::{Type, misc::join};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum TypeKind {

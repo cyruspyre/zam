@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 
 use crate::zam::{
-    identifier::Identifier,
-    typ::{kind::TypeKind, Type},
     Entity,
+    identifier::Identifier,
+    typ::{Type, kind::TypeKind},
 };
 
 use super::{BlockType, Parser};
@@ -12,7 +12,7 @@ impl Parser {
     pub fn fun(&mut self, require_body: bool) -> Option<(Identifier, Entity)> {
         let name = self.identifier(true, false)?;
         let de = self.expect_char(&['<', '('])?;
-        let gen = match de {
+        let generic = match de {
             '<' => self.dec_gen()?,
             _ => IndexMap::new(),
         };
@@ -40,8 +40,8 @@ impl Parser {
             name,
             Entity::Function {
                 arg,
-                gen,
                 ret,
+                generic,
                 done: false,
                 block: Some(self.block(BlockType::Local)?),
             },

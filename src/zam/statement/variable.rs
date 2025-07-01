@@ -1,4 +1,4 @@
-use crate::zam::{typ::Type, Entity};
+use crate::zam::{Entity, typ::Type};
 
 use super::{super::Parser, Statement};
 

@@ -7,25 +7,21 @@ mod r#struct;
 mod typ;
 mod variable;
 
-use std::thread::{current, ThreadId};
+use std::thread::{ThreadId, current};
 
 use crate::{
     cfg::Config,
     err,
-    misc::{Bypass, RefMut},
-    zam::{block::Impls, Zam},
+    misc::{Bypass, Ref, RefMut},
+    naive_map::NaiveMap,
+    zam::{Zam, block::Impls},
 };
 
 pub struct Project {
     pub cfg: Config,
     pub root: Zam,
     pub impls: Impls,
-    pub cur: Vec<(ThreadId, Current)>,
-}
-
-pub struct Current {
-    zam: RefMut<Zam>,
-    global: bool,
+    pub cur: NaiveMap<ThreadId, RefMut<Zam>>,
 }
 
 impl Project {
@@ -38,15 +34,10 @@ impl Project {
         let mut stack = vec![&mut tmp.root];
 
         while let Some(zam) = stack.pop() {
-            self.cur.push((
-                current().id(),
-                Current {
-                    zam: RefMut(zam),
-                    global: true,
-                },
-            ));
+            zam.lookup.stamp = (Ref(&zam.id), 1);
+            self.cur.insert(current().id(), RefMut(zam));
             self.block(&mut zam.block);
-            self.cur.swap_remove(self.cur_idx());
+            self.cur.pop();
 
             err += zam.log.err;
 
@@ -68,13 +59,7 @@ impl Project {
         }
     }
 
-    fn cur_idx(&self) -> usize {
-        let id = current().id();
-
-        self.cur.iter().position(|v| v.0 == id).unwrap()
-    }
-
-    pub fn cur(&mut self) -> &mut Current {
-        &mut self.bypass().cur[self.cur_idx()].1
+    pub fn cur(&mut self) -> &mut RefMut<Zam> {
+        self.cur.get(&current().id()).unwrap()
     }
 }

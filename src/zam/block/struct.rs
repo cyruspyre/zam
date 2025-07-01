@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 
 use crate::{
     misc::Bypass,
-    zam::{identifier::Identifier, Entity},
+    zam::{Entity, identifier::Identifier},
 };
 
 use super::Parser;
@@ -11,7 +11,7 @@ impl Parser {
     pub fn structure(&mut self) -> Option<(Identifier, Entity)> {
         let name = self.identifier(true, false)?;
         let de = self.expect_char(&['<', '{'])?;
-        let gen = match de {
+        let generic = match de {
             '<' => self.dec_gen()?,
             _ => IndexMap::new(),
         };
@@ -21,15 +21,13 @@ impl Parser {
         }
 
         let ctx = self.log.ctx.bypass();
-        // *ctx = Some(Context::Struct.span(name.rng()));
         let fields = self.fields('}')?;
-        *ctx = None;
 
         Some((
             name,
             Entity::Struct {
-                gen,
                 fields,
+                generic,
                 done: false,
                 impls: IndexMap::new(),
                 traits: IndexMap::new(),

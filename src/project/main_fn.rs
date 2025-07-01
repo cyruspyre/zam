@@ -2,7 +2,7 @@ use strsim::jaro;
 
 use crate::{
     log::{Log, Point},
-    zam::{expression::misc::Range, Entity},
+    zam::{Entity, expression::misc::Range},
 };
 
 use super::Project;

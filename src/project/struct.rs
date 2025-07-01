@@ -1,8 +1,10 @@
+use std::ops::DerefMut;
+
 use crate::{
     log::{Log, Point},
     misc::Bypass,
-    project::{Current, Project},
-    zam::{expression::misc::Range, identifier::Identifier, Entity},
+    project::Project,
+    zam::{Entity, Zam, expression::misc::Range, identifier::Identifier, typ::kind::TypeKind},
 };
 
 impl Project {
@@ -21,19 +23,34 @@ impl Project {
             return;
         }
 
-        let Current { zam, global } = self.cur().bypass();
-        let log = &mut zam.log;
+        let zam = self.cur().deref_mut().bypass();
+        let Zam { log, lookup, .. } = zam;
+        let stamp = lookup.stamp;
+        let __ = log.bypass().ctx(id.rng(), Point::Info, "in this struct");
 
-        // log.ctx = Some(Context::Struct.span(log.rng));
+        for typ in fields.values_mut() {
+            let kind = &mut typ.kind;
 
-        for v in fields.values_mut() {
-            self.typ(&mut v.kind);
+            self.qualify_type(kind);
+
+            if matches!(kind.data, TypeKind::Entity { .. })
+                && stamp == lookup.stamp
+                && typ.null == 0
+                && !typ.raw
+            {
+                return log(
+                    &mut [(kind.rng, Point::Error, "")],
+                    Log::Error,
+                    "recursive type detected without indirections",
+                    "make it nullable or wrap it in a type that provides indirections",
+                );
+            }
         }
 
-        log.ctx = None;
         *done = true;
 
-        if !*global {
+        // todo: this will always return true lol so fix it
+        if !zam.block.global {
             return;
         }
 
@@ -41,40 +58,37 @@ impl Project {
             return;
         };
 
-        dbg!(&map);
-
         for (zam_id, val) in map {
             let mut idx = 0;
             let mut iter = zam_id.iter();
             let first = iter.next().unwrap();
-            let mut zam = if self.cfg.pkg.name == **first {
+            let mut cur = if self.cfg.pkg.name == **first {
                 self.root.bypass()
             } else {
                 todo!("`ZamPath` for dependencies")
             };
 
             for id in iter {
-                zam = zam.mods.get_mut(&**id).unwrap();
+                cur = cur.mods.get_mut(&**id).unwrap();
             }
 
-            let log = &mut zam.log;
+            let tmp = zam.bypass();
+            self.cur().0 = cur;
 
-            while let Some(([one, two], gen, block)) = val.get(idx) {
-                let res = self.lookup(one);
-                if !zam.block.dec.contains_key(one) {
-                    log(
-                        &mut [(one.rng(), Point::Error, "")],
-                        Log::Error,
-                        format!("cannot find `{one}`. did you mean `{id}`?"),
-                        format!("qualify it as `{}` or import it", id.relative(zam_id)),
-                    );
-                }
-                println!("{one} {:#?}", res);
+            let log = zam.log.bypass();
+
+            while let Some(([one, two], generic, block)) = val.get(idx) {
+                idx += 1;
+                let Some(res) = self.lookup(one, true) else {
+                    continue;
+                };
+
                 if !two.is_empty() {
                     todo!("implement traits for types")
                 }
-                idx += 1;
             }
+
+            self.cur().0 = tmp
         }
     }
 }

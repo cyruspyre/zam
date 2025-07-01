@@ -2,11 +2,11 @@ use crate::{
     log::{Log, Logger, Point},
     misc::Bypass,
     parser::span::Span,
-    zam::{expression::term::AssignKind, Entity},
+    zam::{Entity, expression::term::AssignKind},
 };
 
 use super::{
-    super::{statement::Statement, Block},
+    super::{Block, statement::Statement},
     Expression, Parser, Term,
 };
 

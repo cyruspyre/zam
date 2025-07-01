@@ -10,9 +10,9 @@ use crate::{
     log::{Log, Point},
     misc::{Bypass, Ref},
     parser::{
+        Parser,
         misc::CharExt,
         span::{Span, ToSpan},
-        Parser,
     },
     zam::{expression::misc::Range, misc::display, path::ZamPath},
 };
@@ -26,6 +26,12 @@ impl Parser {
         let mut pnt = Vec::new();
         let log = self.log.bypass();
         let idx = self.idx;
+        // flag[0]: whether `super` was encountered
+        // flag[1]: whether `self` was encountered
+        // flag[2]: whether `self` or `super` was the first part
+        let mut flag = [false; 3];
+        // number of `self` or `super` encountered
+        let mut count = 0usize;
         let msg = loop {
             let tmp = self.word();
 
@@ -37,54 +43,52 @@ impl Parser {
                 break "cannot start with a number";
             }
 
-            if matches!(
-                tmp.as_str(),
-                "fn" | "if"
-                    | "in"
-                    | "cte"
-                    | "let"
-                    | "pub"
-                    | "use"
-                    | "for"
-                    | "else"
-                    | "loop"
-                    | "enum"
-                    | "true"
-                    | "false"
-                    | "while"
-                    | "struct"
-                    | "extern"
-            ) {
+            if match tmp.as_str() {
+                "fn" | "if" | "in" | "cte" | "let" | "pub" | "use" | "for" | "else" | "loop"
+                | "enum" | "true" | "false" | "while" | "struct" | "extern" => true,
+                _ => false,
+            } {
                 break "cannot be a keyword";
             }
 
-            if tmp == "self" {
+            let self_super = match tmp.as_str() {
+                "super" => 0,
+                "self" => 1,
+                _ => 2,
+            };
+
+            if self_super < 2 {
+                count += 1;
+                flag[self_super] = true;
+                flag[2] |= buf.len() != 0 && buf.len() == count;
                 pnt.push((log.rng, Point::Error, ""))
-            } else {
-                buf.push(tmp.span(log.rng))
             }
+
+            buf.push(tmp.span(log.rng));
 
             let idx = self.idx;
             let qualified = buf.len() > 1;
-
             if matches!(self.next_if(&["::"]), Ok(_) if self.skip_whitespace().is_id()) {
                 continue;
-            }
-
-            if qualified && !pnt.is_empty() {
-                let msg = "`self` as an identifier cannot be qualified";
-                log(&mut pnt, Log::Error, msg, "");
-                return None;
             }
 
             self.idx = idx;
             log.rng = buf.rng();
 
-            if qualified && !qualifiable {
+            let msg = if flag[0] && flag[1] {
+                "cannot mix `self` and `super`"
+            } else if flag[2] {
+                "`self` or `super` can only be used in start position"
+            } else if flag[1] && count > 1 {
+                "`self` cannot be repeated"
+            } else if qualified && !qualifiable {
                 log.err("expected non-qualified identifier")?
-            }
+            } else {
+                return Some(Identifier(buf));
+            };
 
-            return Some(Identifier(buf));
+            log(&mut pnt, Log::Error, msg, "");
+            return None;
         };
 
         match msg.len() {
@@ -132,9 +136,17 @@ impl Identifier {
         self.0.len() > 1
     }
 
-    pub fn qualify(&self, base: &Self) -> Self {
-        let mut tmp = base.to_vec();
-        tmp.extend_from_slice(&self.0);
+    pub fn qualify<T: Borrow<String> + Clone>(&self, base: &Vec<T>) -> Self {
+        let mut tmp = Vec::with_capacity(base.len() + self.len());
+        let idx = self[0].rng[0];
+
+        for v in base {
+            tmp.push(v.borrow().clone().span([0; 2]));
+        }
+
+        tmp.extend_from_slice(self);
+        tmp[0].rng[0] = idx;
+
         Self(tmp)
     }
 

@@ -6,7 +6,7 @@ use crate::{
     zam::{
         expression::term::Term,
         identifier::Identifier,
-        typ::{kind::TypeKind, Type},
+        typ::{Type, kind::TypeKind},
     },
 };
 
@@ -22,10 +22,10 @@ pub struct Trait {
 
 impl Parser {
     pub fn dec_gen(&mut self) -> Option<Generic> {
-        let mut gen = IndexMap::new();
+        let mut generic = IndexMap::new();
 
         if !self.might('<') {
-            return Some(gen);
+            return Some(generic);
         }
 
         let idx = self.ensure_closed('>')?;
@@ -56,12 +56,12 @@ impl Parser {
                 }
             }
 
-            gen.insert(key, value);
+            generic.insert(key, value);
         }
 
         self.de.pop_front();
 
-        Some(gen)
+        Some(generic)
     }
 
     fn _trait(&mut self) -> Option<Trait> {

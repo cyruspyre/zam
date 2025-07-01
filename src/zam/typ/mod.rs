@@ -12,7 +12,7 @@ use crate::{
     parser::{misc::CharExt, span::Span},
 };
 
-use super::{expression::group::GroupValue, fields::FieldValue, Parser};
+use super::{Parser, expression::group::GroupValue, fields::FieldValue};
 
 #[derive(Clone, Default, PartialEq)]
 pub struct Type {

@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
     ptr::{null, null_mut},
 };
@@ -63,8 +64,7 @@ impl<F: FnMut()> Drop for CustomDrop<F> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Ref<T: ?Sized>(pub *const T);
+pub struct Ref<T>(pub *const T);
 
 impl<T> Borrow<T> for Ref<T> {
     fn borrow(&self) -> &T {
@@ -86,11 +86,19 @@ impl<T> Deref for Ref<T> {
     }
 }
 
-impl<T: Debug + ?Sized> Debug for Ref<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        unsafe { (*self.0).fmt(f) }
+impl<T: Hash> Hash for Ref<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state);
     }
 }
+
+impl<T: PartialEq> PartialEq for Ref<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl<T: PartialEq> Eq for Ref<T> {}
 
 impl<T> Default for Ref<T> {
     fn default() -> Self {
@@ -105,6 +113,12 @@ impl<T> Clone for Ref<T> {
 }
 
 impl<T> Copy for Ref<T> {}
+
+impl<T: Debug> Debug for Ref<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe { (*self.0).fmt(f) }
+    }
+}
 
 #[derive(PartialEq)]
 pub struct RefMut<T>(pub *mut T);

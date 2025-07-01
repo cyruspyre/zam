@@ -1,12 +1,12 @@
 use crate::zam::{
-    block::BlockType,
-    expression::{term::AssignKind, Expression},
-    identifier::Identifier,
     Entity,
+    block::BlockType,
+    expression::{Expression, term::AssignKind},
+    identifier::Identifier,
 };
 
 use super::{
-    super::{expression::term::Term, Parser},
+    super::{Parser, expression::term::Term},
     Block, Statement,
 };
 

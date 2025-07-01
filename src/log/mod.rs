@@ -1,9 +1,10 @@
 mod error;
+mod misc;
 
 use std::{
     borrow::Cow,
     fmt::Display,
-    io::{stderr, BufWriter, Write},
+    io::{BufWriter, Write, stderr},
     ops::Add,
     path::PathBuf,
 };

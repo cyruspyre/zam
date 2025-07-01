@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-use super::{block::BlockType, fields::FieldValue, typ::Type, Parser};
+use super::{Parser, block::BlockType, fields::FieldValue, typ::Type};
 
 #[derive(Clone, Default, PartialEq)]
 pub struct Expression {
@@ -285,8 +285,6 @@ impl Parser {
         if required && exp.is_empty() {
             log.err_op(true, &["<expression>"])?
         }
-
-        // todo: move the operator precedence somewhere else to perform it after validating only
 
         let mut order = [2, 0];
         let mut index = [0; 3];

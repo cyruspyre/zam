@@ -11,7 +11,7 @@ impl Project {
         }
 
         *done = true;
-        self.typ(&mut exp.typ.kind);
+        self.qualify_type(&mut exp.typ.kind);
         self.validate_type(exp);
 
         println!("{exp} is {}", exp.typ);

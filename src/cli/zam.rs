@@ -7,8 +7,9 @@ use crate::{
     cfg::Config,
     err,
     misc::{Bypass, Ref},
+    naive_map::NaiveMap,
     project::Project,
-    zam::{path::ZamPath, Zam},
+    zam::{Zam, path::ZamPath},
 };
 
 pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
@@ -40,6 +41,8 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
         {
             fun()
         }
+
+        // todo: `mod.z` file in root dir has incorrect id
 
         while let Some(res) = val.take() {
             val = entries.next();
@@ -73,11 +76,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
             if !typ.is_file() || {
                 let tmp = cur == root.log.path.parent().unwrap();
 
-                if key == "main" {
-                    tmp
-                } else {
-                    !tmp
-                }
+                if key == "main" { tmp } else { !tmp }
             } {
                 continue;
             }
@@ -89,7 +88,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
     }
 
     Project {
-        cur: Vec::new(),
+        cur: NaiveMap::new(),
         cfg,
         root,
         impls,

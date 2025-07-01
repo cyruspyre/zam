@@ -5,7 +5,7 @@ use crate::{
     misc::Bypass,
 };
 
-use super::{expression::misc::Range, identifier::Identifier, Parser};
+use super::{Parser, expression::misc::Range, identifier::Identifier};
 
 pub type Fields<T> = IndexMap<Identifier, T>;
 

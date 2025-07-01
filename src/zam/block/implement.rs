@@ -8,7 +8,7 @@ use crate::{
 
 impl Parser {
     pub fn implement(&mut self, impls: &mut LocalImpls, global: bool) -> Option<bool> {
-        let gen = match self.might('<') {
+        let generic = match self.might('<') {
             true => self.dec_gen()?,
             _ => Default::default(),
         };
@@ -35,7 +35,7 @@ impl Parser {
             impls.entry(Ref(&id_one.leaf_name().data)).or_default()
         };
 
-        tmp.push(([id_one, id_two], gen, self.block(BlockType::Impl)?.dec));
+        tmp.push(([id_one, id_two], generic, self.block(BlockType::Impl)?.dec));
 
         Some(true)
     }
