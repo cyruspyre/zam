@@ -34,7 +34,7 @@ impl Project {
         let mut stack = vec![&mut tmp.root];
 
         while let Some(zam) = stack.pop() {
-            zam.lookup.stamp = (Ref(&zam.id), 1);
+            zam.lookup.stamp = Ref(&zam.id);
             self.cur.insert(current().id(), RefMut(zam));
             self.block(&mut zam.block);
             self.cur.pop();

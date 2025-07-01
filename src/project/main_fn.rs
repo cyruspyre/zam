@@ -9,8 +9,8 @@ use super::Project;
 
 impl Project {
     pub fn main_fn(&mut self) {
-        let src = &mut self.root;
-        let v = match src
+        let zam = &mut self.root;
+        let v = match zam
             .block
             .dec
             .iter()
@@ -31,10 +31,10 @@ impl Project {
                     },
                 },
             ),
-            _ => ([src.log.data.len(); 2], Point::Error, ""),
+            _ => ([zam.log.data.len(); 2], Point::Error, ""),
         };
 
-        src.log
+        zam.log
             .call(&mut [v], Log::Error, "expected `main` function", "");
     }
 }

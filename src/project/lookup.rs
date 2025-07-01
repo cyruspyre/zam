@@ -50,7 +50,7 @@ impl Project {
             zam = tmp
         }
 
-        lookup.stamp = (Ref(&zam.id), lookup.decs.len());
+        lookup.stamp = Ref(&zam.id);
 
         let leaf = id.leaf_name();
 
@@ -64,7 +64,7 @@ impl Project {
         loop {
             let (idx, dec) = match iter.next() {
                 Some((idx, map)) => (**idx, map.deref_mut()),
-                _ if lookup.decs.is_empty() => (0, zam.block.dec.bypass()),
+                _ if lookup.decs.is_empty() && two.is_empty() => (0, zam.block.dec.bypass()),
                 _ => break,
             };
 

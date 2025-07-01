@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::{ops::Deref, path::PathBuf};
 
 use hashbrown::HashMap;
+use indexmap::IndexMap;
 use threadpool::ThreadPool;
 
 use crate::{
@@ -23,67 +24,75 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
 
     path.push("src");
 
-    let zam_id = ZamPath(vec![Ref(&cfg.pkg.name)]);
+    let mut zam_id = ZamPath(vec![Ref(&cfg.pkg.name)]);
     let mut impls = HashMap::new();
     let mut parse =
         |path: PathBuf, required: bool, id: ZamPath| Zam::parse(path, required, &mut impls, id);
     let mut root = parse(path.join("main.z"), true, zam_id.clone());
-    let mut stack = Vec::from([(path, zam_id, &mut root.mods, None::<Box<dyn FnOnce()>>)]);
+    let mut parent_mods = root.mods.bypass();
+    let mut stack = Vec::from([(path.clone(), root.bypass())]);
 
-    while let Some((cur, mut zam_id, mods, remover)) = stack.pop() {
+    while let Some((cur, zam)) = stack.pop() {
+        let mods = &mut zam.mods;
+        let not_root = cur != path;
         let Ok(mut entries) = cur.read_dir() else {
             continue;
         };
-        let mut val = entries.next();
 
-        if val.is_none()
-            && let Some(fun) = remover
-        {
-            fun()
+        if not_root {
+            zam_id.push(*zam.id.last().unwrap());
         }
 
-        // todo: `mod.z` file in root dir has incorrect id
-
-        while let Some(res) = val.take() {
-            val = entries.next();
-
+        while let Some(res) = entries.next() {
             let Ok(entry) = res else { continue };
             let Ok(typ) = entry.file_type() else { continue };
-            let path = entry.path();
-            let key = match path.with_extension("").file_name() {
-                Some(v) if let Some(v) = v.to_str() => v.to_string(),
-                _ => continue,
+            let entry_path = entry.path();
+            let file = entry_path.with_extension("");
+            let Some(name) = file.file_name() else {
+                continue;
             };
+            let Some(name) = name.to_str() else { continue };
+            let name = name.to_string();
 
             if typ.is_dir() {
-                zam_id.push(Ref(&key));
-                let zam = parse(path.join("mod.z"), false, zam_id.clone());
-                let mut entry = mods.bypass().entry(key).insert(zam);
-                let parent = mods.bypass();
+                let mut entry =
+                    mods.entry(name)
+                        .insert(parse(entry_path.join("mod.z"), false, zam_id.clone()));
+                let val = entry.get_mut().bypass();
 
-                stack.push((
-                    path,
-                    zam_id.clone(),
-                    entry.get_mut().mods.bypass(),
-                    Some(Box::new(move || {
-                        parent.remove(entry.key());
-                    })),
-                ));
-                zam_id.pop();
+                val.id.push(Ref(entry.key()));
+                stack.push((entry_path, val));
+
                 continue;
             }
 
-            if !typ.is_file() || {
-                let tmp = cur == root.log.path.parent().unwrap();
-
-                if key == "main" { tmp } else { !tmp }
-            } {
+            if !typ.is_file() || !matches!(entry.path().extension(), Some(v) if v == "z") {
                 continue;
             }
 
-            zam_id.push(Ref(&key));
-            mods.insert(key, parse(path, true, zam_id.clone()));
+            let special = match name.as_str() {
+                "main" if !not_root => continue,
+                "mod" if not_root => continue,
+                _ => true,
+            };
+            let mut entry = mods
+                .entry(name)
+                .insert(parse(entry_path, true, zam_id.clone()));
+
+            if special {
+                let tmp = Ref(entry.key());
+                entry.get_mut().id.push(tmp);
+            }
+        }
+
+        if not_root {
             zam_id.pop();
+
+            if mods.is_empty() && zam.log.ignore {
+                parent_mods.remove(zam.id.last().unwrap().deref());
+            }
+
+            parent_mods = mods;
         }
     }
 

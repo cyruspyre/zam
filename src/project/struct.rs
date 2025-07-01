@@ -33,7 +33,7 @@ impl Project {
 
             self.qualify_type(kind);
 
-            if matches!(kind.data, TypeKind::Entity { .. })
+            if matches!(kind.data, TypeKind::Entity { id: id_, .. } if id_.rng() == id.rng())
                 && stamp == lookup.stamp
                 && typ.null == 0
                 && !typ.raw

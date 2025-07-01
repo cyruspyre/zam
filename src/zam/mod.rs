@@ -38,7 +38,7 @@ pub struct Zam {
 pub struct Lookup {
     pub vars: IndexMap<Ref<Identifier>, RefMut<Entity>>,
     pub decs: Vec<(Ref<usize>, RefMut<IndexMap<Identifier, Entity>>)>,
-    pub stamp: (Ref<ZamPath>, usize),
+    pub stamp: Ref<ZamPath>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,6 +89,7 @@ impl Zam {
             log: Logger {
                 path,
                 data: res.unwrap_or_default().chars().collect(),
+                ignore: err,
                 ..Default::default()
             },
             impls: RefMut(impls),
