@@ -47,7 +47,7 @@ pub fn init(mut path: PathBuf, cfg: PathBuf, cmd: ArgMatches) {
         .unwrap()
         .write(
             format!(
-                "[package]\nname = \"{}\"\ntype = {typ:?}",
+                "[package]\nname = \"{}\"\ntype = {typ:?}\n\n[dependencies]",
                 path.file_name().unwrap().to_string_lossy(),
             )
             .as_bytes(),

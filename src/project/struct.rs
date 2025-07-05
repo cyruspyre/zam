@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::{borrow::Cow, ops::DerefMut};
 
 use crate::{
     log::{Log, Point},
@@ -26,7 +26,7 @@ impl Project {
         let zam = self.cur().deref_mut().bypass();
         let Zam { log, lookup, .. } = zam;
         let stamp = lookup.stamp;
-        let __ = log.bypass().ctx(id.rng(), Point::Info, "in this struct");
+        let __ = log.ctx(id.rng(), Point::Info, Cow::Borrowed("in this struct"));
 
         for typ in fields.values_mut() {
             let kind = &mut typ.kind;
@@ -54,7 +54,7 @@ impl Project {
             return;
         }
 
-        let Some(map) = self.bypass().impls.get(&id.leaf_name().data) else {
+        let Some(map) = self.bypass().impls.get_mut(&id.leaf_name().data) else {
             return;
         };
 
@@ -72,23 +72,26 @@ impl Project {
                 cur = cur.mods.get_mut(&**id).unwrap();
             }
 
-            let tmp = zam.bypass();
-            self.cur().0 = cur;
-
+            let __ = self.set_tmp_cur(cur);
             let log = zam.log.bypass();
 
-            while let Some(([one, two], generic, block)) = val.get(idx) {
-                idx += 1;
-                let Some(res) = self.lookup(one, true) else {
-                    continue;
-                };
+            while let Some(([one, two], generic, block)) = val.get_mut(idx) {
+                match self.lookup(one, true) {
+                    Some(v) if lookup.stamp == stamp && id.rng() == v.0.rng() => {}
+                    _ => {
+                        idx += 1;
+                        continue;
+                    }
+                }
 
                 if !two.is_empty() {
                     todo!("implement traits for types")
                 }
-            }
 
-            self.cur().0 = tmp
+                self.block(block, None);
+
+                val.swap_remove(idx);
+            }
         }
     }
 }

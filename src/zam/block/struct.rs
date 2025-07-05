@@ -1,8 +1,10 @@
+use std::borrow::Cow;
+
 use indexmap::IndexMap;
 
 use crate::{
-    misc::Bypass,
-    zam::{Entity, identifier::Identifier},
+    log::Point,
+    zam::{Entity, expression::misc::Range, identifier::Identifier},
 };
 
 use super::Parser;
@@ -20,7 +22,11 @@ impl Parser {
             self.expect_char(&['{'])?;
         }
 
-        let ctx = self.log.ctx.bypass();
+        let __ = self.log.ctx(
+            name.rng(),
+            Point::Error,
+            Cow::Owned(format!("while parsing `{name}`")),
+        );
         let fields = self.fields('}')?;
 
         Some((

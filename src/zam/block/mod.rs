@@ -21,8 +21,7 @@ use super::{
     typ::generic::Generic,
 };
 
-type Declaration = IndexMap<Identifier, Entity>;
-type Impl = Vec<([Identifier; 2], Generic, Declaration)>;
+type Impl = Vec<([Identifier; 2], Generic, Block)>;
 pub type Impls = HashMap<Ref<String>, IndexMap<Ref<ZamPath>, Impl>>;
 type LocalImpls = HashMap<Ref<String>, Impl>;
 
@@ -30,7 +29,7 @@ type LocalImpls = HashMap<Ref<String>, Impl>;
 pub struct Block {
     pub public: Vec<usize>,
     pub ext: IndexMap<Identifier, RefMut<Entity>>,
-    pub dec: Declaration,
+    pub dec: IndexMap<Identifier, Entity>,
     pub stm: Vec<Statement>,
     pub global: bool,
     pub impls: LocalImpls,
@@ -163,7 +162,7 @@ impl Parser {
 
             stm.push(match tmp {
                 "let" | "cte" => self.var(tmp == "cte")?,
-                "if" => self.cond()?,
+                "return" => Statement::Return(self.exp([';'], false)?.0),
                 "for" | "loop" | "while" => self.r#loop(stm_ref, tmp)?,
                 _ => {
                     self.idx = stamp;

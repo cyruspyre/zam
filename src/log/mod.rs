@@ -21,7 +21,7 @@ pub struct Logger {
     pub rng: [usize; 2],
     pub eof: bool,
     pub err: usize,
-    pub ctx: Option<([usize; 2], Point, &'static str)>,
+    pub ctx: Option<([usize; 2], Point, Cow<'static, str>)>,
     pub ignore: bool,
 }
 
@@ -73,7 +73,7 @@ impl Logger {
 
         pnt.sort_unstable_by_key(|v| v.0[0]);
 
-        let tmp = match self.ctx {
+        let tmp = match &self.ctx {
             Some(v) => v.0[0],
             _ => 0,
         };
@@ -134,7 +134,7 @@ impl Logger {
                     && ctx.0[0] < rng[0]
                 {
                     tmp = false;
-                    Some((ctx.0, ctx.1, Cow::Borrowed(ctx.2)))
+                    Some((ctx.0, ctx.1, Cow::Borrowed(ctx.2.as_ref())))
                 } else {
                     iter.next();
                     Some((

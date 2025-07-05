@@ -3,11 +3,11 @@ use std::ops::DerefMut;
 use crate::{
     misc::{Bypass, Ref, RefMut},
     project::Project,
-    zam::{Entity, Lookup, block::Block, expression::misc::Range, statement::Statement},
+    zam::{Entity, Lookup, block::Block, expression::misc::Range, statement::Statement, typ::Type},
 };
 
 impl Project {
-    pub fn block(&mut self, block: &mut Block) {
+    pub fn block(&mut self, block: &mut Block, ret: Option<&Type>) {
         let zam = self.cur().deref_mut().bypass();
         let dec = block.dec.bypass();
         let Lookup { vars, decs, .. } = zam.lookup.bypass();
@@ -33,26 +33,26 @@ impl Project {
 
         decs.pop();
 
-        for v in &mut block.stm {
+        for (i, v) in &mut block.stm.iter_mut().enumerate() {
             match v {
                 Statement::Variable { id, data } => {
                     self.variable(data);
                     vars.insert(Ref(id.bypass()), RefMut(data.bypass()));
                 }
-                Statement::Conditional { cond, default } => {
-                    for (exp, block) in cond {
-                        self.validate_type(exp);
-                        self.block(block);
+                Statement::Expression(exp) => {
+                    self.assert_expr(exp);
+                }
+                Statement::Return(exp) => {
+                    if let Some(typ) = ret {
+                        exp.typ = typ.clone()
                     }
 
-                    if let Some(block) = default {
-                        self.block(block);
-                    }
+                    self.assert_expr(exp);
                 }
                 v => todo!("Statement::{v:?}"),
             }
         }
 
-        vars.truncate(len)
+        vars.truncate(len);
     }
 }

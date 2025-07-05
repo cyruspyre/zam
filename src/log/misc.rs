@@ -1,6 +1,8 @@
+use std::borrow::Cow;
+
 use crate::{
     log::{Logger, Point},
-    misc::CustomDrop,
+    misc::{Bypass, CustomDrop},
 };
 
 impl Logger {
@@ -8,9 +10,10 @@ impl Logger {
         &mut self,
         rng: [usize; 2],
         pnt: Point,
-        label: &str,
-    ) -> CustomDrop<impl FnMut() + use<'_>> {
-        self.ctx = Some((rng, pnt, unsafe { &*(label as *const _) }));
-        CustomDrop(|| self.ctx = None)
+        label: Cow<'static, str>,
+    ) -> CustomDrop<impl FnMut() + use<>> {
+        let tmp = self.ctx.bypass();
+        *tmp = Some((rng, pnt, label));
+        CustomDrop(|| *tmp = None)
     }
 }

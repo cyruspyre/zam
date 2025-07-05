@@ -22,7 +22,9 @@ pub struct Type {
     /// not just the base `Vec`
     pub kind: Span<TypeKind>,
     pub sub: Vec<Type>,
-    pub ptr: usize,
+    /// Should be treated as `usize` in most cases except for type checking
+    /// where you need to check if user is trying to dereference a non-reference type
+    pub ptr: isize,
     pub raw: bool,
     pub null: usize,
 }
@@ -153,7 +155,7 @@ impl Display for Type {
         write!(
             f,
             "{}{}{}{}",
-            if self.raw { "*" } else { "&" }.repeat(self.ptr),
+            if self.raw { "*" } else { "&" }.repeat(self.ptr as usize),
             self.kind,
             if self.sub.is_empty() {
                 "".into()

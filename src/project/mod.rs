@@ -1,4 +1,5 @@
 mod block;
+mod expression;
 mod fun;
 pub mod lookup;
 mod main_fn;
@@ -12,7 +13,7 @@ use std::thread::{ThreadId, current};
 use crate::{
     cfg::Config,
     err,
-    misc::{Bypass, Ref, RefMut},
+    misc::{Bypass, CustomDrop, Ref, RefMut},
     naive_map::NaiveMap,
     zam::{Zam, block::Impls},
 };
@@ -36,7 +37,7 @@ impl Project {
         while let Some(zam) = stack.pop() {
             zam.lookup.stamp = Ref(&zam.id);
             self.cur.insert(current().id(), RefMut(zam));
-            self.block(&mut zam.block);
+            self.block(&mut zam.block, None);
             self.cur.pop();
 
             err += zam.log.err;
@@ -59,7 +60,16 @@ impl Project {
         }
     }
 
-    pub fn cur(&mut self) -> &mut RefMut<Zam> {
+    pub fn cur(&mut self) -> &mut Zam {
         self.cur.get(&current().id()).unwrap()
+    }
+
+    pub fn set_tmp_cur(&mut self, new: &mut Zam) -> CustomDrop<impl FnMut() + use<>> {
+        let cur = self.cur.get(&current().id()).unwrap().bypass();
+        let tmp = cur.0;
+
+        cur.0 = new;
+
+        CustomDrop(move || cur.0 = tmp)
     }
 }

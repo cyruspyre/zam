@@ -1,9 +1,12 @@
 use indexmap::IndexMap;
 
-use crate::zam::{
-    Entity,
-    identifier::Identifier,
-    typ::{Type, kind::TypeKind},
+use crate::{
+    parser::span::ToSpan,
+    zam::{
+        Entity,
+        identifier::Identifier,
+        typ::{Type, kind::TypeKind},
+    },
 };
 
 use super::{BlockType, Parser};
@@ -24,7 +27,7 @@ impl Parser {
         let arg = self.fields(')')?;
         let ret = match self.skip_whitespace() {
             '{' => Type {
-                kind: self.span(TypeKind::Unknown),
+                kind: TypeKind::None.span([self.log.rng[1] + 1, 0]),
                 sub: Vec::new(),
                 ptr: 0,
                 raw: false,
@@ -43,7 +46,11 @@ impl Parser {
                 ret,
                 generic,
                 done: false,
-                block: Some(self.block(BlockType::Local)?),
+                block: if require_body {
+                    Some(self.block(BlockType::Local)?)
+                } else {
+                    None
+                },
             },
         ))
     }

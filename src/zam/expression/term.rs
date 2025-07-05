@@ -62,6 +62,10 @@ pub enum Term {
     Struct(Fields<Expression>),
     Generic(Vec<Span<Type>>),
     Identifier(Identifier),
+    Conditional {
+        conds: Vec<(Expression, Block)>,
+        default: Option<Block>,
+    },
     Access,
     Rng,
     Assign(AssignKind),

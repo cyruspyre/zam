@@ -1,4 +1,5 @@
 mod array;
+mod conditional;
 pub mod group;
 pub mod misc;
 mod number;
@@ -217,10 +218,12 @@ impl Parser {
                 self.array()?
             } else if c.is_ascii_digit() || c == '-' && was_op {
                 self.num()?
-            } else if self.next_if(&["as"]).is_ok() {
-                Term::As(self.typ()?)
-            } else if let Ok(v) = self.next_if(&["true", "false"]) {
-                Term::Bool(v.len() == 4) // "true" has 4 chars
+            } else if let Ok(v) = self.next_if(&["as", "if", "true", "false"]) {
+                match v.as_str() {
+                    "if" => self.conditional()?,
+                    "as" => Term::As(self.typ()?),
+                    _ => Term::Bool(v.len() == 4), // `true` has 4 chars
+                }
             } else if c.is_quote() || c.is_id() && self.peek_more().is_quote() {
                 self.text()?
             } else if c.is_id() {
@@ -267,19 +270,21 @@ impl Parser {
             ass &= matches!(tmp, Term::Deref | Term::Identifier(_));
 
             if special && is_op == was_op {
-                let msg = format!(
-                    "expected {}",
-                    match was_op {
-                        true => "a term",
-                        _ => "an operator",
-                    }
-                );
-
-                log.err(msg)?;
+                log.err_op(
+                    false,
+                    &[match was_op {
+                        true => "<term>",
+                        _ => "<operator>",
+                    }],
+                )?;
             }
 
             was_op = is_op;
             exp.push(tmp.span(log.rng));
+        }
+
+        if was_op {
+            log.err_op(true, &["<term>"])?
         }
 
         if required && exp.is_empty() {

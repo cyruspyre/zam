@@ -35,7 +35,7 @@ impl Parser {
             impls.entry(Ref(&id_one.leaf_name().data)).or_default()
         };
 
-        tmp.push(([id_one, id_two], generic, self.block(BlockType::Impl)?.dec));
+        tmp.push(([id_one, id_two], generic, self.block(BlockType::Impl)?));
 
         Some(true)
     }

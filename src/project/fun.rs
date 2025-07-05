@@ -15,8 +15,8 @@ impl Project {
 
         self.qualify_type(&mut ret.kind);
 
-        if let Some(v) = &mut *block {
-            self.block(v);
-        }
+        let Some(block) = block else { return };
+
+        self.block(block, Some(ret));
     }
 }

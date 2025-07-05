@@ -1,17 +1,17 @@
-use std::{borrow::Cow, collections::VecDeque, ops::DerefMut};
+use std::{collections::VecDeque, ops::DerefMut};
 
 use strsim::jaro;
 
 use crate::{
     log::{Log, Point},
     misc::{Bypass, Ref, RefMut},
-    parser::span::Span,
+    parser::span::{Span, ToSpan},
     project::Project,
     zam::{
         Entity,
         expression::{misc::Range, term::Term},
         identifier::Identifier,
-        typ::kind::TypeKind,
+        typ::{Type, kind::TypeKind},
     },
 };
 
@@ -37,7 +37,7 @@ impl Project {
                     "self" => tmp,
                     "super" if tmp.parent.is_null() => zam
                         .log
-                        .err_rng(id.rng(), format!("`{}` doesn't have parent", tmp.id))?,
+                        .err_rng(id.rng(), format!("`{}` doesn't have parent module", tmp.id))?,
                     "super" => tmp.parent.deref_mut(),
                     v if let Some(v) = zam.mods.get_mut(v) => v.bypass(),
                     _ if idx != id.len() => zam
@@ -142,7 +142,7 @@ impl Project {
         None
     }
 
-    pub fn as_typ<'a, F>(&mut self, id_exp: &Identifier, mut next: F) -> Option<Cow<TypeKind>>
+    pub fn qualify_identifier<'a, F>(&mut self, id_exp: &Identifier, mut next: F) -> Option<Type>
     where
         F: FnMut() -> Option<&'a mut Term>,
     {
@@ -151,13 +151,13 @@ impl Project {
         let (id_entity, val) = res?;
 
         let typ = match val.bypass() {
-            Entity::Variable { exp, done, .. } => 'a: {
+            Entity::Variable { exp, done, .. } => {
                 if *done && exp.typ.kind.data == TypeKind::Unknown {
-                    break 'a Cow::Owned(TypeKind::Unknown);
+                    return None;
                 }
 
                 self.variable(val);
-                Cow::Borrowed(&exp.typ.kind.data)
+                exp.typ.clone()
             }
             Entity::Struct {
                 done,
@@ -180,7 +180,7 @@ impl Project {
                     if let Some(v) = fields.get(k) {
                         exp.typ = v.clone();
                         exp.typ.kind.rng.fill(0);
-                        self.validate_type(exp)?
+                        self.assert_expr(exp)?
                     } else {
                         pnt.push((k.rng(), Point::Error, ""));
                     }
@@ -226,10 +226,14 @@ impl Project {
                     return None;
                 }
 
-                Cow::Owned(TypeKind::Entity {
-                    id: Ref(id_entity),
-                    data: RefMut(val),
-                })
+                Type {
+                    kind: TypeKind::Entity {
+                        id: Ref(id_entity),
+                        data: RefMut(val),
+                    }
+                    .span([0; 2]),
+                    ..Default::default()
+                }
             }
             v => todo!("Entity::{v:?}"),
         };
