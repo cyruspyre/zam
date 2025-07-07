@@ -33,7 +33,7 @@ impl Project {
 
         decs.pop();
 
-        for (i, v) in &mut block.stm.iter_mut().enumerate() {
+        for v in &mut block.stm.iter_mut() {
             match v {
                 Statement::Variable { id, data } => {
                     self.variable(data);

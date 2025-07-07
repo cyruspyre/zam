@@ -167,17 +167,15 @@ impl Display for Term {
                 true => format!("{:?}", data.as_bytes()),
                 _ => format!("{data:?}"),
             },
-            Term::Block(Block {
-                dec, stm, public, ..
-            }) => {
+            Term::Block(block @ Block { dec, stm, .. }) => {
                 let mut buf = Vec::with_capacity(dec.len() + stm.len());
 
-                for (i, (k, v)) in dec.iter().enumerate() {
+                for (id, v) in dec.iter() {
                     let tmp = match v {
                         Entity::Variable { exp, cte, .. } => {
                             format!(
-                                "{}{} {k}{}{};",
-                                match public.binary_search(&i).is_ok() {
+                                "{}{} {id}{}{};",
+                                match block.id_is_public(id) {
                                     true => "pub ",
                                     _ => "",
                                 },

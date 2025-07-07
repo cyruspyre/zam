@@ -27,6 +27,8 @@ type LocalImpls = HashMap<Ref<String>, Impl>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Block {
+    /// Indices of public declarations, where each index corresponds to `rng[0]`
+    /// of the declaration's identifier.
     pub public: Vec<usize>,
     pub ext: IndexMap<Identifier, RefMut<Entity>>,
     pub dec: IndexMap<Identifier, Entity>,
@@ -41,44 +43,6 @@ pub enum BlockType {
     Local,
     Trait,
     Global,
-}
-
-impl Display for BlockType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.write_str(match self {
-            BlockType::Impl => "implementation",
-            BlockType::Trait => "trait",
-            BlockType::Local => "local",
-            BlockType::Global => "global",
-        })
-    }
-}
-
-fn insert<V>(
-    map: &mut IndexMap<Identifier, V>,
-    dup: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
-    id: Identifier,
-    val: V,
-) {
-    let rng = id.rng();
-    let entry = map.entry(id);
-    let Entry::Occupied(entry) = entry else {
-        entry.insert_entry(val);
-        return;
-    };
-    let key = entry.key().leaf_name();
-
-    insert_dup(dup, key, rng)
-}
-
-fn insert_dup(
-    map: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
-    dup: &Span<String>,
-    og_rng: [usize; 2],
-) {
-    map.entry(unsafe { &*(&dup.data as *const _) })
-        .or_insert_with(|| vec![(og_rng, Point::Error, "")])
-        .push((dup.rng, Point::Error, ""))
 }
 
 impl Parser {
@@ -131,7 +95,7 @@ impl Parser {
             }
 
             'two: {
-                let (k, v) = match tmp {
+                let (id, val) = match tmp {
                     "fn" => self.fun(typ != BlockType::Trait)?,
                     "pub" if not_local => {
                         flag = true;
@@ -149,10 +113,10 @@ impl Parser {
 
                 if flag {
                     flag = false;
-                    public.push(dec.len());
+                    public.push(id[0].rng[0]);
                 }
 
-                insert(&mut dec, &mut dup, k, v);
+                insert(&mut dec, &mut dup, id, val);
                 continue 'one;
             }
 
@@ -209,4 +173,48 @@ impl Parser {
             public,
         })
     }
+}
+
+impl Block {
+    pub fn id_is_public(&self, id: &Identifier) -> bool {
+        self.public.contains(&id[0].rng[0])
+    }
+}
+
+impl Display for BlockType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.write_str(match self {
+            BlockType::Impl => "implementation",
+            BlockType::Trait => "trait",
+            BlockType::Local => "local",
+            BlockType::Global => "global",
+        })
+    }
+}
+
+fn insert<V>(
+    map: &mut IndexMap<Identifier, V>,
+    dup: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
+    id: Identifier,
+    val: V,
+) {
+    let rng = id.rng();
+    let entry = map.entry(id);
+    let Entry::Occupied(entry) = entry else {
+        entry.insert_entry(val);
+        return;
+    };
+    let key = entry.key().leaf_name();
+
+    insert_dup(dup, key, rng)
+}
+
+fn insert_dup(
+    map: &mut IndexMap<&String, Vec<([usize; 2], Point, &'static str)>>,
+    dup: &Span<String>,
+    og_rng: [usize; 2],
+) {
+    map.entry(unsafe { &*(&dup.data as *const _) })
+        .or_insert_with(|| vec![(og_rng, Point::Error, "")])
+        .push((dup.rng, Point::Error, ""))
 }
