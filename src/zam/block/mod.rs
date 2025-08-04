@@ -126,7 +126,15 @@ impl Parser {
 
             stm.push(match tmp {
                 "let" | "cte" => self.var(tmp == "cte")?,
-                "return" => Statement::Return(self.exp([';'], false)?.0),
+                "return" => Statement::Return({
+                    let (exp, de) = self.exp([';'], false)?;
+
+                    if de != '\0' {
+                        self._next();
+                    }
+
+                    exp
+                }),
                 "for" | "loop" | "while" => self.r#loop(stm_ref, tmp)?,
                 _ => {
                     self.idx = stamp;

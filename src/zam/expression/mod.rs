@@ -283,12 +283,22 @@ impl Parser {
             exp.push(tmp.span(log.rng));
         }
 
-        if was_op {
-            log.err_op(true, &["<term>"])?
+        if exp.is_empty() {
+            if required {
+                log.err_op(true, &["<expression>"])?
+            }
+
+            return Some((
+                Expression {
+                    data: exp,
+                    ..Default::default()
+                },
+                end,
+            ));
         }
 
-        if required && exp.is_empty() {
-            log.err_op(true, &["<expression>"])?
+        if was_op {
+            log.err_op(true, &["<term>"])?
         }
 
         let mut order = [2, 0];

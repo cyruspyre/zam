@@ -120,7 +120,7 @@ impl Project {
                 }
             };
 
-            self.assert_type(&mut fuck, inferred);
+            self.assert_type(&mut fuck, inferred)?;
         }
         let inferred = &mut inferred?;
         let tmp = self.assert_type(inferred, expected);
