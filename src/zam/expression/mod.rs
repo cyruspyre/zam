@@ -29,66 +29,6 @@ pub struct Expression {
     pub typ: Type,
 }
 
-impl From<Vec<Span<Term>>> for Expression {
-    fn from(value: Vec<Span<Term>>) -> Self {
-        Self {
-            data: value,
-            ..Default::default()
-        }
-    }
-}
-
-impl FieldValue for Expression {
-    fn field_value(src: &mut Parser) -> Option<Self> {
-        Some(src.exp([','], true)?.0)
-    }
-}
-
-impl GroupValue for Expression {
-    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
-        let Some((exp, de)) = src.exp([','], false) else {
-            return Some(None);
-        };
-        let empty = exp.data.is_empty();
-
-        if de != '\0' {
-            src.idx += 1
-        }
-
-        if empty {
-            return None;
-        }
-
-        Some(Some(exp))
-    }
-}
-
-impl Debug for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            return f.write_str(&self.to_string());
-        }
-
-        f.debug_struct("Expression")
-            .field("data", &self.data)
-            .field("typ", &self.typ)
-            .finish()
-    }
-}
-
-impl Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            &self
-                .data
-                .iter()
-                .map(|v| v.to_string())
-                .collect::<Vec<_>>()
-                .join(" "),
-        )
-    }
-}
-
 const OP: [(char, Term, &[(char, Term)]); 12] = {
     let mut i = 1;
     let mut ops: [(char, Term, &[(char, Term)]); 12] = [
@@ -218,10 +158,11 @@ impl Parser {
                 self.array()?
             } else if c.is_ascii_digit() || c == '-' && was_op {
                 self.num()?
-            } else if let Ok(v) = self.next_if(&["as", "if", "true", "false"]) {
+            } else if let Ok(v) = self.next_if(&["as", "if", "true", "false", "return"]) {
                 match v.as_str() {
                     "if" => self.conditional()?,
                     "as" => Term::As(self.typ()?),
+                    "return" => Term::Return(self.exp([';'], false)?.0),
                     _ => Term::Bool(v.len() == 4), // `true` has 4 chars
                 }
             } else if c.is_quote() || c.is_id() && self.peek_more().is_quote() {
@@ -360,5 +301,74 @@ impl Parser {
             },
             end,
         ))
+    }
+}
+
+impl Expression {
+    pub(super) fn new<const N: usize>(terms: [Term; N], rng: [usize; 2]) -> Self {
+        Self {
+            data: terms.map(|v| v.span(rng)).to_vec(),
+            typ: Type::default(),
+        }
+    }
+}
+
+impl FieldValue for Expression {
+    fn field_value(src: &mut Parser) -> Option<Self> {
+        Some(src.exp([','], true)?.0)
+    }
+}
+
+impl GroupValue for Expression {
+    fn group_value(src: &mut Parser) -> Option<Option<Self>> {
+        let Some((exp, de)) = src.exp([','], false) else {
+            return Some(None);
+        };
+        let empty = exp.data.is_empty();
+
+        if de != '\0' {
+            src.idx += 1
+        }
+
+        if empty {
+            return None;
+        }
+
+        Some(Some(exp))
+    }
+}
+
+impl From<Vec<Span<Term>>> for Expression {
+    fn from(value: Vec<Span<Term>>) -> Self {
+        Self {
+            data: value,
+            ..Default::default()
+        }
+    }
+}
+
+impl Debug for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            return f.write_str(&self.to_string());
+        }
+
+        f.debug_struct("Expression")
+            .field("data", &self.data)
+            .field("typ", &self.typ)
+            .finish()
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &self
+                .data
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
     }
 }

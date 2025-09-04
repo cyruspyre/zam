@@ -3,10 +3,10 @@ use std::{collections::VecDeque, ops::DerefMut};
 use strsim::jaro;
 
 use crate::{
+    analyzer::Project,
     log::{Log, Point},
     misc::{Bypass, Ref, RefMut},
     parser::span::{Span, ToSpan},
-    project::Project,
     zam::{
         Entity,
         expression::{misc::Range, term::Term},

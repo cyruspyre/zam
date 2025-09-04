@@ -27,7 +27,7 @@ impl Parser {
         let arg = self.fields(')')?;
         let ret = match self.skip_whitespace() {
             '{' => Type {
-                kind: TypeKind::None.span([self.log.rng[1] + 1, 0]),
+                kind: TypeKind::Unit.span([self.log.rng[1] + 1, 0]),
                 sub: Vec::new(),
                 ptr: 0,
                 raw: false,

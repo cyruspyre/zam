@@ -11,17 +11,13 @@ use super::{
 };
 
 #[derive(Debug)]
-enum WTF {
+enum Segment {
     Buf(String),
     Exp(Expression),
 }
 
 impl Parser {
     pub fn text(&mut self) -> Option<Term> {
-        macro_rules! arr {
-            ($($x:expr),+ $(,)?) => {[$($x),+].map(|v| self.span(v)).to_vec()};
-        }
-
         let log = self.log.bypass();
 
         log.rng.fill(self.idx + 1);
@@ -38,7 +34,7 @@ impl Parser {
         }
 
         let byte = typ == 'b';
-        let mut buf: Vec<WTF> = Vec::new();
+        let mut buf: Vec<Segment> = Vec::new();
         let mut size = 0;
 
         while let Some(mut c) = self._next() {
@@ -77,18 +73,18 @@ impl Parser {
                         return None;
                     }
 
-                    buf.push(WTF::Exp(self.exp(['}'], true)?.0));
+                    buf.push(Segment::Exp(self.exp(['}'], true)?.0));
                     self.de.pop_front();
                     self.idx += 1;
                     continue;
                 }
             }
 
-            if !matches!(buf.last(), Some(WTF::Buf(_))) {
-                buf.push(WTF::Buf(String::new()))
+            if !matches!(buf.last(), Some(Segment::Buf(_))) {
+                buf.push(Segment::Buf(String::new()))
             }
 
-            if let Some(WTF::Buf(v)) = buf.last_mut() {
+            if let Some(Segment::Buf(v)) = buf.last_mut() {
                 v.push(c);
                 size += 1;
             }
@@ -100,38 +96,48 @@ impl Parser {
         if de == '"' {
             if buf.len() == 1 {
                 return match buf.pop().unwrap() {
-                    WTF::Exp(v) => Some(Term::Group(Expression::from(arr![
-                        flatten(v),
-                        Term::Access,
-                        "to_string".into(),
-                        Term::Tuple(Vec::new()),
-                    ]))),
-                    WTF::Buf(data) => Some(Term::String { data, byte }),
+                    Segment::Exp(v) => Some(Term::Group(Expression::new(
+                        [
+                            flatten(v),
+                            Term::Access,
+                            "to_string".into(),
+                            Term::Tuple(Vec::new()),
+                        ],
+                        log.rng,
+                    ))),
+                    Segment::Buf(data) => Some(Term::String { data, byte }),
                 };
             }
 
-            let mut stm = vec![Statement::Variable {
-                id: "0".into(),
-                data: Entity::Variable {
-                    exp: Expression::from(arr![
-                        ["String", "with_capacity"].into(),
-                        Term::Tuple(vec![Expression::from(arr![Term::Integer {
+            let tmp = Expression::new(
+                [
+                    ["String", "with_capacity"].into(),
+                    Term::Tuple(vec![Expression::new(
+                        [Term::Integer {
                             val: size,
                             bit: 64,
                             neg: false,
                             sign: false,
-                        }])]),
-                    ]),
+                        }],
+                        log.rng,
+                    )]),
+                ],
+                log.rng,
+            );
+            let mut stm = vec![Statement::Variable {
+                id: "0".into(),
+                data: Entity::Variable {
+                    exp: tmp,
                     cte: false,
                     done: false,
                 },
             }];
 
             for v in buf {
-                let mut exp = Expression::from(arr!["0".into(), Term::Assign(AssignKind::Add)]);
+                let mut exp = Expression::new(["0".into(), Term::Assign(AssignKind::Add)], log.rng);
                 let tmp: &[Span<Term>] = match v {
-                    WTF::Buf(data) => &self.lol([Term::String { data, byte }]),
-                    WTF::Exp(v) => &self.lol([
+                    Segment::Buf(data) => &self.lol([Term::String { data, byte }]),
+                    Segment::Exp(v) => &self.lol([
                         flatten(v),
                         Term::Access,
                         "to_string".into(),
@@ -150,7 +156,7 @@ impl Parser {
         }
 
         let msg = match buf.pop() {
-            Some(WTF::Buf(buf)) if buf.is_empty() => {
+            Some(Segment::Buf(buf)) if buf.is_empty() => {
                 if typ == 'r' {
                     "raw character literal is not allowed"
                 } else if buf.chars().skip(1).next().is_some() {

@@ -1,9 +1,9 @@
 use std::{borrow::Cow, ops::DerefMut};
 
 use crate::{
+    analyzer::Project,
     log::{Log, Point},
     misc::Bypass,
-    project::Project,
     zam::{Entity, Zam, expression::misc::Range, identifier::Identifier, typ::kind::TypeKind},
 };
 

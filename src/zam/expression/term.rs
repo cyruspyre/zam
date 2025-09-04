@@ -66,6 +66,7 @@ pub enum Term {
         conds: Vec<(Expression, Block)>,
         default: Option<Block>,
     },
+    Return(Expression),
     Access,
     Rng,
     Assign(AssignKind),
@@ -161,6 +162,7 @@ impl Display for Term {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Term::Return(exp) => format!("return {exp}"),
             Term::As(v) => format!("as {v}"),
             Term::Identifier(v) => v.to_string(),
             Term::String { data, byte } => match byte {
@@ -223,7 +225,7 @@ impl Display for Term {
                                 )
                             )
                         }
-                        _ => "lol\n".to_string(),
+                        _ => unimplemented!(),
                     };
 
                     buf.push(tmp);

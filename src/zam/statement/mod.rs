@@ -10,5 +10,4 @@ pub enum Statement {
     Expression(Expression),
     Break(Identifier),
     Continue(Identifier),
-    Return(Expression),
 }

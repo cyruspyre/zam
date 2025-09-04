@@ -1,8 +1,8 @@
 use std::ops::DerefMut;
 
 use crate::{
+    analyzer::Project,
     misc::{Bypass, Ref, RefMut},
-    project::Project,
     zam::{Entity, Lookup, block::Block, expression::misc::Range, statement::Statement, typ::Type},
 };
 
@@ -40,13 +40,6 @@ impl Project {
                     vars.insert(Ref(id.bypass()), RefMut(data.bypass()));
                 }
                 Statement::Expression(exp) => {
-                    self.assert_expr(exp);
-                }
-                Statement::Return(exp) => {
-                    if let Some(typ) = ret {
-                        exp.typ = typ.clone()
-                    }
-
                     self.assert_expr(exp);
                 }
                 v => todo!("Statement::{v:?}"),

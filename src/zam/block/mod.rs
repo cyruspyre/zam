@@ -13,7 +13,10 @@ use crate::{
     log::{Log, Point},
     misc::{Bypass, Ref, RefMut},
     parser::span::Span,
-    zam::path::ZamPath,
+    zam::{
+        expression::{Expression, term::Term},
+        path::ZamPath,
+    },
 };
 
 use super::{
@@ -126,19 +129,11 @@ impl Parser {
 
             stm.push(match tmp {
                 "let" | "cte" => self.var(tmp == "cte")?,
-                "return" => Statement::Return({
-                    let (exp, de) = self.exp([';'], false)?;
-
-                    if de != '\0' {
-                        self._next();
-                    }
-
-                    exp
-                }),
                 "for" | "loop" | "while" => self.r#loop(stm_ref, tmp)?,
                 _ => {
                     self.idx = stamp;
 
+                    let rng = log.rng;
                     let (exp, de) = self.exp([';'], false)?;
                     let used = de != '\0';
 
@@ -150,10 +145,10 @@ impl Parser {
                         continue;
                     }
 
-                    match used {
-                        true => Statement::Expression(exp),
-                        _ => Statement::Return(exp),
-                    }
+                    Statement::Expression(match used {
+                        true => exp,
+                        _ => Expression::new([Term::Return(exp)], rng),
+                    })
                 }
             });
         }

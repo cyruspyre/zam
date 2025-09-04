@@ -1,4 +1,4 @@
-use crate::{project::Project, zam::Entity};
+use crate::{analyzer::Project, zam::Entity};
 
 impl Project {
     pub fn variable<'a>(&mut self, val: &mut Entity) {

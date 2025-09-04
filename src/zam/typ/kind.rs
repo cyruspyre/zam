@@ -11,7 +11,8 @@ use super::{Type, misc::join};
 pub enum TypeKind {
     #[default]
     Unknown,
-    None,
+    Never,
+    Unit,
     Bool,
     Integer {
         bit: u32,
@@ -37,7 +38,8 @@ pub enum TypeKind {
 impl Display for TypeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let data = match self {
-            TypeKind::None => "()".into(),
+            TypeKind::Never => "!".into(),
+            TypeKind::Unit => "()".into(),
             TypeKind::Bool => "bool".into(),
             TypeKind::Integer { bit, sign } => match bit {
                 0 => format!("<{}integer>", if *sign { "signed_" } else { "" }),

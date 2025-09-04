@@ -1,6 +1,7 @@
 use crate::{
+    analyzer::Project,
     misc::Bypass,
-    project::Project,
+    parser::span::ToSpan,
     zam::{
         expression::{Expression, misc::Range, term::Term},
         typ::{Type, kind::TypeKind},
@@ -94,6 +95,11 @@ impl Project {
 
                     TypeKind::Tuple(buf)
                 }
+                Term::Return(exp) => {
+                    // todo: somehow specify the expr expected type to return type
+                    self.assert_expr(exp);
+                    TypeKind::Never
+                }
                 Term::Ref => {
                     fuck.ptr += 1;
                     continue;
@@ -122,7 +128,11 @@ impl Project {
 
             self.assert_type(&mut fuck, inferred)?;
         }
-        let inferred = &mut inferred?;
+
+        let inferred = &mut inferred.unwrap_or_else(|| Type {
+            kind: TypeKind::Unit.span(exp.data.rng()),
+            ..Default::default()
+        });
         let tmp = self.assert_type(inferred, expected);
 
         tmp

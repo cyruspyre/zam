@@ -1,6 +1,6 @@
 use crate::{
+    analyzer::Project,
     log::{Log, Point},
-    project::Project,
     zam::typ::{Type, kind::TypeKind},
 };
 

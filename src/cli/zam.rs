@@ -1,15 +1,14 @@
 use std::{ops::Deref, path::PathBuf};
 
 use hashbrown::HashMap;
-use indexmap::IndexMap;
 use threadpool::ThreadPool;
 
 use crate::{
+    analyzer::Project,
     cfg::Config,
     err,
     misc::{Bypass, Ref},
     naive_map::NaiveMap,
-    project::Project,
     zam::{Zam, path::ZamPath},
 };
 

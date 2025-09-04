@@ -1,4 +1,4 @@
-use crate::{log::Logger, misc::Either, project::Project};
+use crate::{analyzer::Project, log::Logger, misc::Either};
 
 impl Project {
     /// ## To be used by compiler internally
