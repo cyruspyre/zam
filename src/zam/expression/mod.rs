@@ -92,7 +92,7 @@ impl Parser {
 
             let start = self.idx + 1;
             let mut is_op = false;
-            let tmp = if let Some(v) = self.stm_gen()? {
+            let term = if let Some(v) = self.stm_gen()? {
                 if match exp.last() {
                     Some(v) => !matches!(v.data, Term::Identifier(_)),
                     _ => true,
@@ -202,13 +202,13 @@ impl Parser {
                 }
             };
             let special = !matches!(
-                tmp,
+                term,
                 Term::Ref | Term::Deref | Term::Neg | Term::As(_) | Term::Struct(_)
             );
 
             log.rng = [start, self.idx];
-            is_op |= tmp == Term::Sub;
-            ass &= matches!(tmp, Term::Deref | Term::Identifier(_));
+            is_op |= term == Term::Sub;
+            ass &= matches!(term, Term::Deref | Term::Identifier(_));
 
             if special && is_op == was_op {
                 log.err_op(
@@ -221,7 +221,7 @@ impl Parser {
             }
 
             was_op = is_op;
-            exp.push(tmp.span(log.rng));
+            exp.push(term.span(log.rng));
         }
 
         if exp.is_empty() {
@@ -305,7 +305,7 @@ impl Parser {
 }
 
 impl Expression {
-    pub(super) fn new<const N: usize>(terms: [Term; N], rng: [usize; 2]) -> Self {
+    pub fn new<const N: usize>(terms: [Term; N], rng: [usize; 2]) -> Self {
         Self {
             data: terms.map(|v| v.span(rng)).to_vec(),
             typ: Type::default(),

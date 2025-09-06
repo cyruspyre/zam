@@ -4,7 +4,7 @@ use hashbrown::HashMap;
 use threadpool::ThreadPool;
 
 use crate::{
-    analyzer::Project,
+    analyzer::Analyzer,
     cfg::Config,
     err,
     misc::{Bypass, Ref},
@@ -95,7 +95,7 @@ pub fn zam(mut path: PathBuf, cfg: Config, pool: &ThreadPool) {
         }
     }
 
-    Project {
+    Analyzer {
         cur: NaiveMap::new(),
         cfg,
         root,

@@ -1,14 +1,16 @@
+use std::ops::Deref;
+
 use crate::{
-    analyzer::Project,
+    analyzer::Analyzer,
+    log::{Log, Point},
     misc::Bypass,
-    parser::span::ToSpan,
     zam::{
         expression::{Expression, misc::Range, term::Term},
         typ::{Type, kind::TypeKind},
     },
 };
 
-impl Project {
+impl Analyzer {
     pub fn assert_expr<'a>(&mut self, exp: &mut Expression) -> Option<()> {
         let expected = exp.typ.bypass();
 
@@ -19,7 +21,9 @@ impl Project {
             self.location(exp.data.rng())
         );
 
-        let log = self.cur().log.bypass();
+        let cur = self.cur_full().bypass();
+        let log = &mut cur.zam.log;
+        let rets = &cur.rets;
         let mut inferred: Option<Type> = None;
         let mut fuck = Type::default();
         let mut iter = exp.bypass().data.iter_mut();
@@ -96,8 +100,23 @@ impl Project {
                     TypeKind::Tuple(buf)
                 }
                 Term::Return(exp) => {
-                    // todo: somehow specify the expr expected type to return type
-                    self.assert_expr(exp);
+                    let tmp = rets.last().unwrap().deref();
+
+                    if exp.data.is_empty() {
+                        log(
+                            &mut [
+                                (term.rng, Point::Error, "expected return value"),
+                                (tmp.kind.rng, Point::Info, "return type specified here"),
+                            ],
+                            Log::Error,
+                            "type mismatch",
+                            "",
+                        );
+                    } else {
+                        exp.typ = tmp.clone();
+                        self.assert_expr(exp);
+                    }
+
                     TypeKind::Never
                 }
                 Term::Ref => {
@@ -129,10 +148,7 @@ impl Project {
             self.assert_type(&mut fuck, inferred)?;
         }
 
-        let inferred = &mut inferred.unwrap_or_else(|| Type {
-            kind: TypeKind::Unit.span(exp.data.rng()),
-            ..Default::default()
-        });
+        let inferred = &mut inferred.unwrap_or_else(|| Type::unit(exp.typ.kind.rng));
         let tmp = self.assert_type(inferred, expected);
 
         tmp

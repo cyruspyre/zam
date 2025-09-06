@@ -3,7 +3,7 @@ use std::{collections::VecDeque, ops::DerefMut};
 use strsim::jaro;
 
 use crate::{
-    analyzer::Project,
+    analyzer::Analyzer,
     log::{Log, Point},
     misc::{Bypass, Ref, RefMut},
     parser::span::{Span, ToSpan},
@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-impl Project {
+impl Analyzer {
     pub fn lookup(
         &mut self,
         id: &Identifier,

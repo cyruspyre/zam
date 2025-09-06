@@ -15,38 +15,52 @@ use crate::{
     err,
     misc::{Bypass, CustomDrop, Ref, RefMut},
     naive_map::NaiveMap,
-    zam::{Zam, block::Impls},
+    zam::{Zam, block::Impls, typ::Type},
 };
 
-pub struct Project {
+pub struct Analyzer {
     pub cfg: Config,
     pub root: Zam,
     pub impls: Impls,
-    pub cur: NaiveMap<ThreadId, RefMut<Zam>>,
+    pub cur: NaiveMap<ThreadId, ThreadStorage>,
 }
 
-impl Project {
+pub struct ThreadStorage {
+    zam: RefMut<Zam>,
+    /// Stack of recently accessed block types for use in `return`/`break` type inference
+    rets: Vec<Ref<Type>>,
+}
+
+impl Analyzer {
     pub fn validate(mut self) {
         self.main_fn();
 
         let tmp = self.bypass();
         let name = &tmp.cfg.pkg.name;
-        let mut err = 0;
+        let mut err = Vec::<&_>::new();
         let mut stack = vec![&mut tmp.root];
 
         while let Some(zam) = stack.pop() {
             zam.lookup.stamp = Ref(&zam.id);
-            self.cur.insert(current().id(), RefMut(zam));
+
+            self.cur.insert(
+                current().id(),
+                ThreadStorage {
+                    zam: RefMut(zam),
+                    rets: Vec::new(),
+                },
+            );
             self.block(&mut zam.block, None);
             self.cur.pop();
-
-            err += zam.log.err;
+            err.push(zam.log.err.bypass());
 
             for v in zam.bypass().mods.values_mut() {
                 v.parent = RefMut(zam);
                 stack.push(v);
             }
         }
+
+        let err = err.into_iter().map(|v| *v).sum::<usize>();
 
         if err != 0 {
             err!(
@@ -60,12 +74,16 @@ impl Project {
         }
     }
 
-    pub fn cur(&mut self) -> &mut Zam {
+    pub fn cur_full(&mut self) -> &mut ThreadStorage {
         self.cur.get(&current().id()).unwrap()
     }
 
+    pub fn cur(&mut self) -> &mut Zam {
+        &mut self.cur_full().zam
+    }
+
     pub fn set_tmp_cur(&mut self, new: &mut Zam) -> CustomDrop<impl FnMut() + use<>> {
-        let cur = self.cur.get(&current().id()).unwrap().bypass();
+        let cur = &mut self.cur.get(&current().id()).unwrap().bypass().zam;
         let tmp = cur.0;
 
         cur.0 = new;

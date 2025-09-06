@@ -5,7 +5,7 @@ use crate::log::{Log, Logger, Point};
 #[macro_export]
 macro_rules! err {
     ($($arg:tt)*) => {{
-        eprint!("{}: ", colored::Colorize::red("error"));
+        eprint!("{}: ", colored::Colorize::bright_red("error"));
         eprintln!($($arg)*);
         std::process::exit(1);
     }};

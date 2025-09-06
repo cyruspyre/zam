@@ -9,7 +9,10 @@ use misc::join;
 
 use crate::{
     misc::Bypass,
-    parser::{misc::CharExt, span::Span},
+    parser::{
+        misc::CharExt,
+        span::{Span, ToSpan},
+    },
 };
 
 use super::{Parser, expression::group::GroupValue, fields::FieldValue};
@@ -132,6 +135,15 @@ impl Parser {
             raw,
             null,
         })
+    }
+}
+
+impl Type {
+    pub fn unit(rng: [usize; 2]) -> Self {
+        Self {
+            kind: TypeKind::Unit.span(rng),
+            ..Default::default()
+        }
     }
 }
 

@@ -1,14 +1,14 @@
 use std::ops::DerefMut;
 
 use crate::{
-    analyzer::Project,
+    analyzer::{Analyzer, ThreadStorage},
     misc::{Bypass, Ref, RefMut},
     zam::{Entity, Lookup, block::Block, expression::misc::Range, statement::Statement, typ::Type},
 };
 
-impl Project {
+impl Analyzer {
     pub fn block(&mut self, block: &mut Block, ret: Option<&Type>) {
-        let zam = self.cur().deref_mut().bypass();
+        let ThreadStorage { zam, rets } = self.cur_full().deref_mut().bypass();
         let dec = block.dec.bypass();
         let Lookup { vars, decs, .. } = zam.lookup.bypass();
         let len = vars.len();
@@ -24,7 +24,7 @@ impl Project {
                 //Entity::Type { typ, public } => todo!(),
                 Entity::Variable { .. } => self.variable(val),
                 Entity::Struct { .. } => self.r#struct(id, val),
-                Entity::Function { .. } => self.fun(val),
+                Entity::Function { .. } => self.fun(id.rng(), val),
             }
 
             vars.insert(Ref(id), RefMut(val));
@@ -32,6 +32,10 @@ impl Project {
         }
 
         decs.pop();
+        rets.push(match ret {
+            Some(v) => Ref(v),
+            _ => Ref::default(),
+        });
 
         for v in &mut block.stm.iter_mut() {
             match v {
@@ -46,6 +50,7 @@ impl Project {
             }
         }
 
+        rets.pop();
         vars.truncate(len);
     }
 }

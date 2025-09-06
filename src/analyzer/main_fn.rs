@@ -5,9 +5,9 @@ use crate::{
     zam::{Entity, expression::misc::Range},
 };
 
-use super::Project;
+use super::Analyzer;
 
-impl Project {
+impl Analyzer {
     pub fn main_fn(&mut self) {
         let zam = &mut self.root;
         let v = match zam

@@ -1,6 +1,6 @@
-use crate::{analyzer::Project, zam::Entity};
+use crate::{analyzer::Analyzer, zam::Entity};
 
-impl Project {
+impl Analyzer {
     pub fn variable<'a>(&mut self, val: &mut Entity) {
         let Entity::Variable { exp, done, .. } = val else {
             return;

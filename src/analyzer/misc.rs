@@ -1,6 +1,6 @@
-use crate::{analyzer::Project, log::Logger, misc::Either};
+use crate::{analyzer::Analyzer, log::Logger, misc::Either};
 
-impl Project {
+impl Analyzer {
     /// ## To be used by compiler internally
     ///
     /// Get formatted location of the current file with the given range/span

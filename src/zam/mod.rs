@@ -38,6 +38,7 @@ pub struct Zam {
 pub struct Lookup {
     pub vars: IndexMap<Ref<Identifier>, RefMut<Entity>>,
     pub decs: Vec<(Ref<usize>, RefMut<IndexMap<Identifier, Entity>>)>,
+    /// The last module from which the lookup returned it's result
     pub stamp: Ref<ZamPath>,
 }
 

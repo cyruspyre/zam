@@ -1,10 +1,10 @@
 use crate::{
-    analyzer::Project,
+    analyzer::Analyzer,
     log::{Log, Point},
     zam::typ::{Type, kind::TypeKind},
 };
 
-impl Project {
+impl Analyzer {
     pub fn assert_type(&mut self, actual: &mut Type, expected: &mut Type) -> Option<()> {
         let mut pnt = Vec::new();
 

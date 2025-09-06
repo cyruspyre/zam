@@ -1,13 +1,13 @@
 use std::{borrow::Cow, ops::DerefMut};
 
 use crate::{
-    analyzer::Project,
+    analyzer::Analyzer,
     log::{Log, Point},
     misc::Bypass,
     zam::{Entity, Zam, expression::misc::Range, identifier::Identifier, typ::kind::TypeKind},
 };
 
-impl Project {
+impl Analyzer {
     pub fn r#struct<'a>(&mut self, id: &Identifier, val: &mut Entity) {
         let Entity::Struct {
             fields,

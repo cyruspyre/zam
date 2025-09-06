@@ -126,6 +126,7 @@ impl Logger {
         loop {
             let Some((rng, pnt, label)) = val else {
                 let Some((rng, pnt, label)) = iter.bypass().peek() else {
+                    io.write(format!("{border}\n").as_bytes()).unwrap();
                     break;
                 };
 
@@ -154,14 +155,16 @@ impl Logger {
             };
             let end = self.line.get(line_idx).unwrap() - 1;
             let code: String = self.data[start..=end].iter().collect();
+            let blank = format!("\n{}{} ", " ".repeat(pad + line.len()), "|".bright_black());
             let buf = format!(
-                "{border}\n{line}{} {} {code}\n{border} ",
+                "{border}\n{line}{} {} {code}{blank}",
                 " ".repeat(pad - line.len()),
                 "|".bright_black(),
             );
 
             io.write(buf.as_bytes()).unwrap();
 
+            // maybe i can rewrite the following parts in a better way...
             let mut labels = vec![(rng, pnt, label)];
             let mut flag = false;
 
@@ -182,6 +185,8 @@ impl Logger {
                 iter.next();
                 labels.push((rng, *pnt, label));
             }
+
+            let stamp = labels.len();
 
             loop {
                 let mut start = start;
@@ -212,6 +217,10 @@ impl Logger {
                     idx += 1;
 
                     if idx == labels.len() {
+                        if idx != stamp {
+                            io.write(format!("{blank}{buf}").as_bytes()).unwrap();
+                        }
+
                         let buf = format!(" {}", label.color(color));
 
                         io.write(buf.as_bytes()).unwrap();
@@ -228,8 +237,7 @@ impl Logger {
                     break;
                 }
 
-                io.write(format!("\n{}  ", " ".repeat(pad + line.len())).as_bytes())
-                    .unwrap();
+                io.write(blank.as_bytes()).unwrap();
             }
 
             io.write(b"\n").unwrap();
